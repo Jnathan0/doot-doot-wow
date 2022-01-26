@@ -1,16 +1,22 @@
 {
-    "token": "token goes here",
-    "log_channel": 42069,
-    "prefix": "'",
-    "reverse_char": "-",
-    "sounds_path": "path/to/project/media/",
-    "database_path": "path/to/project/db/",
-    "sub_cmd_sep": " ",
-    "owb_id": 1234,
-    "redis": {
-      "address": "localhost",
-      "port": 6379,
-      "charset": "utf-8"
-    }
-  }
-  
+  "token": "token goes here",
+  "log_channel": 42069,
+  "prefix": "'",
+  "reverse_char": "-",
+  "media_path": "path/to/project/media/",
+  "paths": {
+    "sounds": "",
+    "gifs": "",
+    "images": "",
+    "videos": ""
+  },
+  "database_folder_path": "path/to/project/db/",
+  "sub_cmd_sep": " ",
+  "owb_id": 1234,
+  "redis": {
+    "address": "localhost",
+    "port": 6379,
+    "charset": "utf-8"
+  },
+  "image_size_limit": 8000000
+}
