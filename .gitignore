@@ -253,6 +253,7 @@ sounds/
 gifs/
 images/
 videos/
+!/media/.gitkeep
 *.db
 images/*.png
 *.log.*
@@ -260,3 +261,4 @@ images/*.png
 config.json
 pid.txt
 /include
+
