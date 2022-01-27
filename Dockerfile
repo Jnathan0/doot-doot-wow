@@ -5,7 +5,6 @@ RUN apt install redis-server -y
 RUN apt install sqlite3 -y
 RUN apt install ffmpeg -y
 
-# remove me 
 
 ADD ./ /doot-doot/
 
