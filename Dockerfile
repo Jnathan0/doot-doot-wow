@@ -1,10 +1,9 @@
 FROM python:3.8.12-bullseye
-ENV IS_DOCKER 1
 
 RUN apt update
 RUN apt install redis-server -y
 RUN apt install sqlite3 -y
-RUN apt install ffmpeg
+RUN apt install ffmpeg -y
 
 ADD ./ /doot-doot/
 

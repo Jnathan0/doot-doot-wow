@@ -8,6 +8,9 @@ from rq import Queue
 from redis import Redis
 from modules.errors import *
 
+#TODO:
+# - Change config attributes to get from the confi.js and refactor out the docker env reading
+
 __all__ = ('config')
 
 required = [
