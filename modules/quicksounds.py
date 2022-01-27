@@ -1,4 +1,4 @@
-from .app_config import config
+from .aliases import sounds
 from .errors import *
 
 
@@ -24,5 +24,5 @@ class Quicksound:
             raise Generic_Error
 
     def check_exists(self):
-        if self.sound not in config.alias_dict.keys():
+        if self.sound not in sounds.alias_dict.keys():
             raise Sound_Not_Exist_Error
