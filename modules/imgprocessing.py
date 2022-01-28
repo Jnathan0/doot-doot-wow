@@ -47,11 +47,14 @@ class ImageAttachment():
         If there is no image, just returns. 
         """
         db = GetDB(config.database_path)
-        image_data = db.cursor.execute(f"SELECT folder, image_id FROM images WHERE sound_id=\"{self.sound_id}\"").fetchall()[0]
-        if image_data:
-            folder = image_data[0]
-            image_name = image_data[1]
-            os.remove(f"{config.media_path}/{folder}/{image_name}")
-            return
-        else:
+        try:
+            image_data = db.cursor.execute(f"SELECT folder, image_id FROM images WHERE sound_id=\"{self.sound_id}\"").fetchall()[0]
+            if image_data:
+                folder = image_data[0]
+                image_name = image_data[1]
+                os.remove(f"{config.media_path}/{folder}/{image_name}")
+                return
+            else:
+                return
+        except IndexError as e:
             return

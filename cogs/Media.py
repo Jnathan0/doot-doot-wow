@@ -24,6 +24,8 @@ class Media(commands.Cog, commands.Command):
         '''Upload a sound file and add it to the library.\nCommand will be filename w/o file extension (ex. \'airhorn).\nYou can add to group like: 'add wow'''
         command = ctx.message.content.split(config.prefix)[1]
 
+        print(ctx.message.attachments[0].content_type.split('/')[0])
+        print(ctx.message.attachments[0].content_type.split('/'))
         if ctx.message.attachments[0].content_type.split('/')[0] == "image":
             try:
                 sound_id = command.split("add ")[1]
@@ -31,7 +33,7 @@ class Media(commands.Cog, commands.Command):
                     await ctx.message.author.send(format_markdown(f"The sound '{sound_id}' does not exist, so you cannot add an image for it."))
                     await ctx.message.delete()
                 image = ImageAttachment(ctx, sound_id)
-                image.delete_existing_image_file()
+                # image.delete_existing_image_file()
                 image.download_file()
                 await ctx.message.author.send(format_markdown(f"Added image {image.filename} to sound {command.split('add ')[1]}"))
                 await ctx.message.delete()
