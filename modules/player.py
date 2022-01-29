@@ -20,7 +20,7 @@ class Player:
         try:
             if sound_object.media is not None:
                 file = discord.File(str(f"{config.media_path}/{sound_object.media}"))
-                await ctx.send(file=file)
+                await ctx.send(file=file, delete_after=10)
         except:
             pass
         ##################################################################################################

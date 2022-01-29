@@ -26,6 +26,7 @@ required = [
             ]
 
 __extensions__ = [
+    'Admin',
     'Player',
     'Basics',
     'SoundsUtils',

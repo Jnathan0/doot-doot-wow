@@ -11,9 +11,6 @@ class Sound:
         self.path = path
         self.media = media 
 
-
-
-
 class SoundsInfo:
     """
     Object that manages data structure to hold alias and category information, to be accessed by application functions at runtime 

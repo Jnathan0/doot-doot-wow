@@ -31,14 +31,14 @@ class Basics(commands.Cog):
             await ctx.send(f"I can't find that cog.")
 
     # owner only command to shutdown bot
-    @commands.command()
-    @commands.guild_only()
-    @commands.is_owner()
-    async def shutdown(self, ctx):
-        """Kills the bot."""
-        await ctx.send("you're such a turnoff")
-        await self.bot.logout()
-        await self.bot.close()
+    # @commands.command()
+    # @commands.guild_only()
+    # @commands.is_owner()
+    # async def shutdown(self, ctx):
+    #     """Kills the bot."""
+    #     await ctx.send("you're such a turnoff")
+    #     await self.bot.logout()
+    #     await self.bot.close()
 
     @commands.command()
     async def ping(self, ctx: commands.Context):
@@ -46,7 +46,7 @@ class Basics(commands.Cog):
         t1 = time.perf_counter()
         await ctx.trigger_typing()
         t2 = time.perf_counter()
-        await ctx.send(f":hourglass: gateway ping: {round((t2 - t1) * 1000)}ms :hourglass:")
+        await ctx.send(f"> **PONG**\n:hourglass: gateway ping: {round((t2 - t1) * 1000)}ms :hourglass:")
 
     @commands.command()
     async def github(self, ctx):
@@ -77,8 +77,6 @@ class Basics(commands.Cog):
         except discord.Forbidden:
             await ctx.send(
                 "There was an error sending Embed with bot invite. please check if bot has permission to embed links and try again")
-
-
 
     @commands.command()
     @commands.is_owner()

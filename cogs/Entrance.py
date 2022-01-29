@@ -29,7 +29,7 @@ class Entrance(commands.Cog):
         If the uesr hasn't been in the voice for more than an hour, the entry sound will play when they connect.
         If the user connects to the voice channel before 60 mins from their initial entry, the sound will not play.
         """
-        if member.bot: #dont use this for bots entering the voice channel
+        if member.bot: #dont use this feature for bots entering the voice channel
             return
 
         vc_before = before.channel
