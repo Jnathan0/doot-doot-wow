@@ -4,6 +4,8 @@ import utils
 import os
 import asyncio
 import discord
+import datetime
+import time
 from modules import config, sounds
 from modules.database import *
 from modules.player import player
@@ -27,8 +29,8 @@ client = Bot(
 
 # Loading special extension for Eval
 client.load_extension('jishaku')
-
 # Initialization of bot and logging in
+client.start
 @client.event
 async def on_ready():
     # We setup the logger first

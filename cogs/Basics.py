@@ -30,15 +30,6 @@ class Basics(commands.Cog):
         else:
             await ctx.send(f"I can't find that cog.")
 
-    # owner only command to shutdown bot
-    # @commands.command()
-    # @commands.guild_only()
-    # @commands.is_owner()
-    # async def shutdown(self, ctx):
-    #     """Kills the bot."""
-    #     await ctx.send("you're such a turnoff")
-    #     await self.bot.logout()
-    #     await self.bot.close()
 
     @commands.command()
     async def ping(self, ctx: commands.Context):
@@ -78,15 +69,6 @@ class Basics(commands.Cog):
             await ctx.send(
                 "There was an error sending Embed with bot invite. please check if bot has permission to embed links and try again")
 
-    @commands.command()
-    @commands.is_owner()
-    async def setpresence(self, ctx, *, content):
-        """Changing bots presence"""
-        if len(content) > 0:
-            await self.bot.change_presence(activity=discord.Game(name=content))
-            await ctx.send("Presence sucesfully changed to\n ```" + content + "```")
-        else:
-            await ctx.send("Presence cannot be empty string")
 
     @commands.command()
     @commands.guild_only()
