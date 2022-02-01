@@ -29,7 +29,7 @@ class Admin(commands.Cog):
     @commands.is_owner()
     async def admin(self, ctx):
         """
-        Top level command to invoke subcommands
+        Top level command to invoke subcommands for admins
         """
         if ctx.invoked_subcommand is None:
             await ctx.send(format_markdown("Invalid Admin command invoked"))
@@ -95,20 +95,22 @@ class Admin(commands.Cog):
         await ctx.send(embed=embed)
 
 
-    # @commands.guild_only()
-    # @commands.is_owner()
-    # @admin.group()
-    # async def avatar(self, ctx):
-    #     """
-    #     Looks at message attachment and uploads the media as the bots new discord avatar
-    #     """
-    #     media = ctx.message.attachments[0]
-    #     # download = requests.get(media.url)
-    #     # temp_img = tempfile.NamedTemporaryFile(dir="/var/tmp")
-    #     # open(f"{temp_img.name}", 'wb').write(download.content)
-        
-    #     # avatar = open(f"{temp_img.name}", 'rb')
-    #     await self.bot.user.edit(avatar=bytes(media.url))
+    @commands.guild_only()
+    @commands.is_owner()
+    @admin.group()
+    async def avatar(self, ctx):
+        """
+        Looks at the first message attachment and uploads the media as the bots new discord avatar
+        """
+        media = ctx.message.attachments[0]
+        download = requests.get(media.url)
+        temp_dir = tempfile.TemporaryDirectory(dir="/var/tmp/")
+        open(f"{temp_dir.name+'/'+media.filename}", 'wb').write(download.content)
+        avatar = open(f"{temp_dir.name+'/'+media.filename}", 'rb')
+        await self.bot.user.edit(avatar=avatar.read())
+        temp_dir.cleanup()
+        await ctx.message.author.send(format_markdown(f"Bot avatar image changed to {media.filename}"))
+        await ctx.message.delete()
 
 
 

@@ -32,7 +32,8 @@ __extensions__ = [
     'SoundsUtils',
     'Stats',
     'Media',
-    'Entrance'
+    'Entrance',
+    'ModTools'
 ]
 
 

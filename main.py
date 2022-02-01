@@ -14,6 +14,8 @@ from discord.ext.commands import Bot
 from pathlib import Path
 from utils import Logger
 
+# Button UI/UX import
+from discord_components import DiscordComponents
 
 pid = os.getpid()
 with open('pid.txt','w') as f:
@@ -30,6 +32,7 @@ client = Bot(
 # Loading special extension for Eval
 client.load_extension('jishaku')
 # Initialization of bot and logging in
+DiscordComponents(client)
 client.start
 @client.event
 async def on_ready():

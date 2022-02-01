@@ -29,7 +29,7 @@ class Stats(commands.Cog, commands.Command):
             for x in info:
                 message+=str(i)+") "+x[0]+" | Plays: "+str(x[1])+"\n"
                 i+=1
-            await ctx.send(format_markdown(message))
+            await ctx.reply(format_markdown(message))
             db.close()
             return
             
@@ -47,11 +47,11 @@ class Stats(commands.Cog, commands.Command):
                 for x in info:
                     message+=str(i)+") "+x[0]+" | Plays: "+str(x[1])+"\n"
                     i+=1
-                await ctx.send(format_markdown(message))
+                await ctx.reply(format_markdown(message))
                 db.close()
             
             except Exception as e:
-                await ctx.send(format_markdown("ERROR: User not found, are you sure they have added anything to the bot?"))
+                await ctx.reply(format_markdown("ERROR: User not found, are you sure they have added anything to the bot?"))
         
         elif command.split("stats ")[1] == "new":
             try:
@@ -115,11 +115,11 @@ class Stats(commands.Cog, commands.Command):
                 foo = pd.DataFrame.from_dict(dict_list)
                 bar = foo["sound_id"].value_counts()
                 header = f"Sound Name          Plays\n-------------------------\n"
-                await ctx.send(format_markdown(header + bar.head(n=10).to_string()))
+                await ctx.reply(format_markdown(header + bar.head(n=10).to_string()))
                 redis_metadata.close()
 
             except Exception as e:
-                await ctx.send(format_markdown("Something happen"))
+                await ctx.reply(format_markdown("Something happen"))
                 return
 
 
