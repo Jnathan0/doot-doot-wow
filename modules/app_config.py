@@ -94,11 +94,10 @@ class AppConfig():
         self.metadata_queue = self._create_metadata_queue()
         
     def _is_in_container(self):
-        return False
-        # if os.environ.get("IS_DOCKER"):
-        #     return True
-        # else:
-        #     return False
+        if os.environ.get("IS_DOCKER"):
+            return True
+        else:
+            return False
 
     def _get_config(self):
         base_path = str(Path(__file__).resolve().parents[1])
