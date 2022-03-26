@@ -66,7 +66,7 @@ class No_Attachment_Error(Error):
         return f"{self.message}"
 
 class Config_Key_Not_Exist_Error(Error):
-    def __init__(self, config_key, message = "Error: No valid config key found in config.json")
+    def __init__(self, config_key, message = "Error: No valid config key found in config.json"):
         self.message = message
 
     def __str__(self):
