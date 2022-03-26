@@ -96,7 +96,7 @@ class AppConfig():
         self.metadata_queue = self._create_metadata_queue()
         
     def _is_in_container(self):
-        if os.environ.get("IS_DOCKER"):
+        if os.environ.get("IS_DOCKER") == 1:
             return True
         else:
             return False
@@ -130,7 +130,7 @@ class AppConfig():
                 if value is not None:
                     return value
                 print(f"No ENV var for attribute: {attribute_name}, looking for config.json")
-                if self._config[attribute_name] is not None:
+                if self._config[attribute_name] != "":
                     value = self._config[attribute_name]
                     return value
                 else:
