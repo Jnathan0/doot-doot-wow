@@ -96,7 +96,7 @@ class AppConfig():
         self.metadata_queue = self._create_metadata_queue()
         
     def _is_in_container(self):
-        if os.environ.get("IS_DOCKER") == 1:
+        if os.environ.get("IS_DOCKER"):
             return True
         else:
             return False
@@ -165,18 +165,19 @@ class AppConfig():
     def _get_database_paths(self):
         try:
             if self.is_docker:
-                if not os.path.isdir("/db"):
+                if not os.path.isdir("/doot-doot/db"):
                     raise Directory_Not_Found_Error(message="Error: Configuration directory not found: /db")
-                if not os.path.isfile("/db/sounds.db"):
-                    if not os.path.isfile("/db/sounds.sql"):
-                        raise File_Not_Found_Error(message="Error: Configuration file not found: sounds.sql")
-                    print("No sounds.db file found, creating database file.")
-                    os.system("cd /db && sqlite3 sounds.db < sounds.sql")
-                # if not os.path.isfile("/db/metadata.db"):
-                #     if not os.path.isfile("/db/metadata.sql"):
-                #         raise File_Not_Found_Error(message="Error: Configuration file not found: metadata.sql")
-                #     os.system("cd /db && sqilte3 metadata.db < metadata.sql")
-                return "/db/sounds.db"
+                if not os.path.isfile("/doot-doot/db/sounds.db"):
+                    if not os.path.isfile("/doot-doot/db/sounds.sql"):
+                        raise File_Not_Found_Error(message="Error: Configuration file not found: sounds.sql\nThis file is required to build the sounds database.\nExiting...")
+                    print("No sounds.db file found, creating database file...")
+                    os.system("cd /doot-doot/db && sqlite3 sounds.db < sounds.sql")
+                if not os.path.isfile("/doot-doot/db/metadata.db"):
+                    if not os.path.isfile("/doot-doot/db/metadata.sql"):
+                        raise File_Not_Found_Error(message="Error: Configuration file not found: metadata.sql\nThis file is required to build the metadata database.\nExiting...")
+                    print("No metadata.db file found, creating database file...")                   
+                    os.system("cd /db && sqilte3 metadata.db < metadata.sql")
+                return "/doot-doot/db/sounds.db"
             
             if self._config["database_folder_path"] == '':
                 raise KeyError

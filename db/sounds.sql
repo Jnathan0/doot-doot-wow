@@ -1,4 +1,3 @@
-CREATE TABLE sqlite_sequence(name,seq);
 CREATE TABLE IF NOT EXISTS "authors"
 (
 [author_id] INTEGER PRIMARY KEY NOT NULL
