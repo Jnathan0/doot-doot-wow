@@ -126,7 +126,7 @@ class AppConfig():
     def _get_attribute_value(self, attribute_name):
         if self.is_docker:
             try:
-                value = os.environ.get(attribute_name.upper()
+                value = os.environ.get(attribute_name.upper())
                 if value is not None:
                     return value
                 print(f"No ENV var for attribute: {attribute_name}, looking for config.json")
