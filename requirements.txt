@@ -14,6 +14,7 @@ colorama==0.4.3
 convertdate==2.3.2
 croniter==1.0.12
 cycler==0.10.0
+discord-components==2.1.2
 discord.py==1.7.3
 expiringdict==1.2.1
 ffmpeg-normalize==1.20.1
