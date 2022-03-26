@@ -13,6 +13,7 @@ from modules.errors import *
 
 __all__ = ('config')
 
+# See example_config.json and README.md for descriptions and examples of keys and values for required. 
 required = [
             'token', 
             'prefix', 
@@ -69,9 +70,10 @@ class AppConfig():
             metadata_queue - Queue object for metadata woker 
     """
     def __init__(self):
-        self._config = self._get_config()
         self.is_docker = self._is_in_container()
+        self._config = self._get_config()
         self.extensions = __extensions__
+        # Lazily set each attribute in "required" as an object attribute
         for item in required: 
             setattr(self, item, self._get_attribute_value(item))
 
@@ -100,6 +102,18 @@ class AppConfig():
             return False
 
     def _get_config(self):
+        if self.is_docker:
+            if os.environ.get("CONFIG_PATH") is None:
+                pass
+            else:
+                config_path = os.environ.get("CONFIG_PATH")
+                try:
+                    config_file = open(config_path, 'r')
+                    return json.loads(config_file.read())
+                except FileNotFoundError as e:
+                    print("Config file not found for ENV value \"CONFIG_PATH\"\nExiting.")
+                    sys.exit(1)
+
         base_path = str(Path(__file__).resolve().parents[1])
         config_path = base_path+"/config.json"
         try:
@@ -112,13 +126,27 @@ class AppConfig():
     def _get_attribute_value(self, attribute_name):
         if self.is_docker:
             try:
-                value = os.environ[attribute_name.upper()]
-                return value
-            except KeyError as e:
-                print(f"REQUIRED KEY: {e}\nNOT SET IN CONFIG.JSON OR OS ENVIRONMENT.") 
+                value = os.environ.get(attribute_name.upper()
+                if value is not None:
+                    return value
+                print(f"No ENV var for attribute: {attribute_name}, looking for config.json")
+                if self._config[attribute_name] is not None:
+                    value = self._config[attribute_name]
+                    return value
+                else:
+                    raise Config_Key_Not_Exist_Error(config_key=attribute_name)
+            except Config_Key_Not_Exist_Error as e:
+                print(f"{e}")
                 sys.exit(1)
-        value = self._config[attribute_name]
-        return value
+        else:
+            try:
+                value = self._config[attribute_name]
+                if value is None:
+                    raise Config_Key_Not_Exist_Error
+                return value
+            except Config_Key_Not_Exist_Error as e:
+                print(f"{e}")
+                sys.exit(1)
 
     def _get_media_paths(self, attribute_name):
         if self.is_docker:
@@ -182,7 +210,7 @@ class AppConfig():
                 charset = os.environ.get("REDIS_CHARSET")
                 return redis.StrictRedis(address, port, charset)
             except KeyError as e:
-                print(e)
+                print(f"ERROR: Could not get value for Redis configuration\n{e}")
                 sys.exit(1)
 
         return redis.StrictRedis(self.redis["address"], self.redis["port"], charset = self.redis["charset"])
@@ -193,9 +221,9 @@ class AppConfig():
                 address = os.environ.get("REDIS_ADDRESS")
                 port = os.environ.get("REDIS_PORT")
                 charset = os.environ.get("REDIS_CHARSET")
-                return redis.StrictRedis(address, port, charset)
+                return redis.StrictRedis(address, port, db = 1, charset = charset, decode_responses = True)
             except KeyError as e:
-                print(e)
+                print(f"ERROR: Could not get value for Redis configuration\n{e}")
                 sys.exit(1)
         return redis.StrictRedis(self.redis["address"], self.redis["port"], db = 1, charset = self.redis["charset"], decode_responses = True)
 

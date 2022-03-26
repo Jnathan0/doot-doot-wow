@@ -65,6 +65,13 @@ class No_Attachment_Error(Error):
     def __str__(self):
         return f"{self.message}"
 
+class Config_Key_Not_Exist_Error(Error):
+    def __init__(self, config_key, message = "Error: No valid config key found in config.json")
+        self.message = message
+
+    def __str__(self):
+        return f"{self.message} {config_key}"
+
 class Image_Too_Large_Error(Error):
     """
     Error to handle when an attempted image upload is larger than the max file size
