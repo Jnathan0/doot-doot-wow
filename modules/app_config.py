@@ -103,16 +103,7 @@ class AppConfig():
 
     def _get_config(self):
         if self.is_docker:
-            if os.environ.get("CONFIG_PATH") is None:
-                pass
-            else:
-                config_path = os.environ.get("CONFIG_PATH")
-                try:
-                    config_file = open(config_path, 'r')
-                    return json.loads(config_file.read())
-                except FileNotFoundError as e:
-                    print("Config file not found for ENV value \"CONFIG_PATH\"\nExiting.")
-                    sys.exit(1)
+            return None
 
         base_path = str(Path(__file__).resolve().parents[1])
         config_path = base_path+"/config.json"
@@ -126,25 +117,22 @@ class AppConfig():
     def _get_attribute_value(self, attribute_name):
         if self.is_docker:
             try:
-                value = os.environ.get(attribute_name.upper())
-                if value is not None:
-                    return value
-                print(f"No ENV var for attribute: {attribute_name}, looking for config.json")
-                if self._config[attribute_name] != "":
-                    value = self._config[attribute_name]
-                    return value
-                else:
-                    raise Config_Key_Not_Exist_Error(config_key=attribute_name)
+                value = os.getenv(attribute_name.upper())
+                if value is None:
+                    raise Config_Key_Not_Exist_Error(attribute_name)
             except Config_Key_Not_Exist_Error as e:
                 print(f"{e}")
                 sys.exit(1)
         else:
             try:
                 value = self._config[attribute_name]
-                if value is None:
+                if value == "" or value == None:
                     raise Config_Key_Not_Exist_Error
                 return value
             except Config_Key_Not_Exist_Error as e:
+                print(f"{e}")
+                sys.exit(1)
+            except Error as e:
                 print(f"{e}")
                 sys.exit(1)
 
@@ -165,19 +153,21 @@ class AppConfig():
     def _get_database_paths(self):
         try:
             if self.is_docker:
-                if not os.path.isdir("/doot-doot/db"):
+                if not os.path.isdir("/db"):
                     raise Directory_Not_Found_Error(message="Error: Configuration directory not found: /db")
+                
                 if not os.path.isfile("/doot-doot/db/sounds.db"):
                     if not os.path.isfile("/doot-doot/db/sounds.sql"):
-                        raise File_Not_Found_Error(message="Error: Configuration file not found: sounds.sql\nThis file is required to build the sounds database.\nExiting...")
+                        raise File_Not_Found_Error(message="Error: Setup file not found: sounds.sql\nThis file is required to build the sounds database.\nExiting...")
                     print("No sounds.db file found, creating database file...")
-                    os.system("cd /doot-doot/db && sqlite3 sounds.db < sounds.sql")
+                    os.system("cd /db && sqlite3 sounds.db < /doot-doot/db/sounds.sql")
+
                 if not os.path.isfile("/doot-doot/db/metadata.db"):
                     if not os.path.isfile("/doot-doot/db/metadata.sql"):
-                        raise File_Not_Found_Error(message="Error: Configuration file not found: metadata.sql\nThis file is required to build the metadata database.\nExiting...")
+                        raise File_Not_Found_Error(message="Error: Setup file not found: metadata.sql\nThis file is required to build the metadata database.\nExiting...")
                     print("No metadata.db file found, creating database file...")                   
-                    os.system("cd /db && sqilte3 metadata.db < metadata.sql")
-                return "/doot-doot/db/sounds.db"
+                    os.system("cd /db && sqilte3 metadata.db < /doot-doot/db/metadata.sql")
+                return "/db/sounds.db"
             
             if self._config["database_folder_path"] == '':
                 raise KeyError
@@ -201,14 +191,12 @@ class AppConfig():
             print(e)
 
 
-
-
     def _create_redis_connection(self):
         if self.is_docker:
             try:
-                address = os.environ.get("REDIS_ADDRESS")
-                port = os.environ.get("REDIS_PORT")
-                charset = os.environ.get("REDIS_CHARSET")
+                address = os.getenv("REDIS_ADDRESS", default="localhost")
+                port = os.getenv("REDIS_PORT", default=6379)
+                charset = os.getenv("REDIS_CHARSET", default="utf-8")
                 return redis.StrictRedis(address, port, charset)
             except KeyError as e:
                 print(f"ERROR: Could not get value for Redis configuration\n{e}")
@@ -219,9 +207,9 @@ class AppConfig():
     def _create_redis_metadata_connection(self):
         if self.is_docker:
             try:
-                address = os.environ.get("REDIS_ADDRESS")
-                port = os.environ.get("REDIS_PORT")
-                charset = os.environ.get("REDIS_CHARSET")
+                address = os.getenv("REDIS_ADDRESS", default="localhost")
+                port = os.getenv("REDIS_PORT", default=6379)
+                charset = os.getenv("REDIS_CHARSET", default="utf-8")
                 return redis.StrictRedis(address, port, db = 1, charset = charset, decode_responses = True)
             except KeyError as e:
                 print(f"ERROR: Could not get value for Redis configuration\n{e}")
