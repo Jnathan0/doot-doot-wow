@@ -139,9 +139,9 @@ class AppConfig():
     def _get_media_paths(self, attribute_name):
         if self.is_docker:
             try:
-                if not os.path.isdir(f"/{attribute_name}"):
-                    raise Directory_Not_Found_Error(message=f"Error: Configuration directory not found: {attribute_name}")
-                return str(f"/{attribute_name}")
+                if not os.path.isdir(f"/media/{attribute_name}"):
+                    raise Directory_Not_Found_Error(message=f"Error: Configuration directory not found: /media/{attribute_name}")
+                return str(f"/media/{attribute_name}")
             except Directory_Not_Found_Error as e:
                 sys.exit(1)
         if self._config["paths"][attribute_name] != '':
