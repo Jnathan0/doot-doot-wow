@@ -120,6 +120,7 @@ class AppConfig():
                 value = os.getenv(attribute_name.upper())
                 if value is None:
                     raise Config_Key_Not_Exist_Error(attribute_name)
+                return value
             except Config_Key_Not_Exist_Error as e:
                 print(f"{e}")
                 sys.exit(1)
@@ -127,7 +128,7 @@ class AppConfig():
             try:
                 value = self._config[attribute_name]
                 if value == "" or value == None:
-                    raise Config_Key_Not_Exist_Error
+                    raise Config_Key_Not_Exist_Error(attribute_name)
                 return value
             except Config_Key_Not_Exist_Error as e:
                 print(f"{e}")
@@ -160,13 +161,13 @@ class AppConfig():
                     if not os.path.isfile("/doot-doot/db/sounds.sql"):
                         raise File_Not_Found_Error(message="Error: Setup file not found: sounds.sql\nThis file is required to build the sounds database.\nExiting...")
                     print("No sounds.db file found, creating database file...")
-                    os.system("cd /db && sqlite3 sounds.db < /doot-doot/db/sounds.sql")
+                    os.system("/bin/bash -c \"cd /db && /usr/bin/sqlite3 sounds.db < /doot-doot/db/sounds.sql\"")
 
                 if not os.path.isfile("/doot-doot/db/metadata.db"):
                     if not os.path.isfile("/doot-doot/db/metadata.sql"):
                         raise File_Not_Found_Error(message="Error: Setup file not found: metadata.sql\nThis file is required to build the metadata database.\nExiting...")
                     print("No metadata.db file found, creating database file...")                   
-                    os.system("cd /db && sqilte3 metadata.db < /doot-doot/db/metadata.sql")
+                    os.system("/bin/bash -c \"cd /db && /usr/bin/sqlite3 metadata.db < /doot-doot/db/metadata.sql\"")
                 return "/db/sounds.db"
             
             if self._config["database_folder_path"] == '':

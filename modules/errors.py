@@ -68,9 +68,10 @@ class No_Attachment_Error(Error):
 class Config_Key_Not_Exist_Error(Error):
     def __init__(self, config_key, message = "Error: No valid config key found in config.json"):
         self.message = message
+        self.config_key = config_key
 
     def __str__(self):
-        return f"{self.message} {config_key}"
+        return f"{self.message}: {self.config_key}"
 
 class Image_Too_Large_Error(Error):
     """
