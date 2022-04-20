@@ -1,3 +1,4 @@
+
 import datetime
 import json
 import discord
@@ -5,19 +6,8 @@ import logging
 import os
 import sys
 from pathlib import Path
+from modules import config
 from logging.handlers import TimedRotatingFileHandler
-
-
-print(Path(__file__).resolve().parents[1])
-
-def getConfig(path):
-    print("printing main getconfig path: " + path)
-    configFile = open(path, "r")
-    return json.loads(configFile.read())
-
-
-config = getConfig(str(Path(__file__).resolve().parents[1])+"/config.json")
-
 
 # Logger from Fido2603's noDoot (https://github.com/Fido2603/noDoot/blob/master/utilities/logger.py)
 def setup_logger():
@@ -46,7 +36,7 @@ async def log(message, bot, level="INFO", debug=""):
     if (logger.getEffectiveLevel != logging.DEBUG) and (level == "DEBUG"):
         return
 
-    logChannel = bot.get_channel(int(config['log_channel']))
+    logChannel = bot.get_channel(int(config.log_channel))
     time = datetime.datetime.now().strftime('%H:%M:%S')
 
     if level == "ERROR":

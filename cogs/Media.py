@@ -151,6 +151,8 @@ class Media(commands.Cog, commands.Command):
             await ctx.send(format_markdown("Cannot restart, \'owb\' role required"))
         if isinstance(error, Image_Too_Large_Error):
             await ctx.send(error)
+        if isinstance(error, Error):
+            await ctx.send(error)
 
 def setup(bot):
     bot.add_cog(Media(bot))

@@ -32,12 +32,18 @@ class ImageAttachment():
             raise Image_Too_Large_Error
         file = requests.get(self.attachment.url)
         media_path = str(config.media_path+'/'+self.filetype+'/')
-        save_path = os.path.join(media_path, self.filename)
+
+        # make a hash of the author_id and the filename and
+        # prepend it to the original filname
+        # this is to minimize filenames what will overwrite other similarly named 
+        # files that already exist
+        hashed_filename = f'{abs(hash(self.author_name+self.filename))}{self.filename}'
+        save_path = os.path.join(media_path, hashed_filename)
         open(save_path, 'wb').write(file.content)
 
         db = GetDB(config.database_path)
         db.cursor.execute(f"DELETE FROM images WHERE sound_id=\"{self.sound_id}\"")
-        db.cursor.execute("INSERT INTO images(sound_id, image_id, folder) VALUES(?,?,?)", (self.sound_id, self.filename, self.filetype))
+        db.cursor.execute("INSERT INTO images(sound_id, image_id, folder) VALUES(?,?,?)", (self.sound_id, hashed_filename, self.filetype))
         db.commit()
         db.close()
 
