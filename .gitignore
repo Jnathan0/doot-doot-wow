@@ -261,4 +261,3 @@ images/*.png
 config.json
 pid.txt
 /include
-*.sh
