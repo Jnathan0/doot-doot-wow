@@ -25,7 +25,7 @@ Environment Variables that are (required) need values in order for the app to ru
 |VIDEOS_PATH| A path to specify the parent directory that contains all video files|/videos|STRING
 |DATABASE_PATH| A path to specify the parent directory that contains the sqlite3 .db file for sounds|/db|STRING
 |METADATA_DB_PATH| A path to specify the parent directory that contains the sqlite3 .db file for persistent app metadata|/db|STRING
-|OWB_ID (required)| The discord id that specifies the discord role to use the bot (this must be set to use certain features like uploading sounds)|NONE|STRING or INT
+|OWB_ID| The discord role id or string that specifies the discord role to use the bot (this must be set to use certain features like uploading sounds)|@everyone|STRING or INT
 |LOG_CHANNEL (reqiured)| The discord channel ID that the bot posts log events to|NONE|INT
 |REVERSE_CHAR| The character that is used after a sound command to play the sound in reverse| - |STRING|
 |IMAGE_SIZE_LIMIT| The maximum image size (in bytes) that can be uploaded to the app| 800000 (8 MB)|INT

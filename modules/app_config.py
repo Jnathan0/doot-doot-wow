@@ -37,7 +37,7 @@ defaults_map = {
     "videos_path": "/videos",
     "database_path": "/db",
     "metadata_db_path": "/db",
-    "owb_id": None,
+    "owb_id": "@everyone",
     "log_channel": None,
     "reverse_char": "-",
     "image_size_limit": 800000,
