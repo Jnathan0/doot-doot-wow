@@ -1,6 +1,7 @@
 import requests
 import os
 import discord
+from datetime import datetime
 from modules import config 
 from modules.database import GetDB
 from modules.errors import Image_Too_Large_Error
@@ -33,17 +34,15 @@ class ImageAttachment():
         file = requests.get(self.attachment.url)
         media_path = str(config.media_path+'/'+self.filetype+'/')
 
-        # make a hash of the author_id and the filename and
-        # prepend it to the original filname
-        # this is to minimize filenames what will overwrite other similarly named 
-        # files that already exist
-        hashed_filename = f'{abs(hash(self.author_name+self.filename))}{self.filename}'
-        save_path = os.path.join(media_path, hashed_filename)
+        # make a datetime.now() result into an int and append it to the filename 
+        # to make the filename unique
+        unique_filename = f'{int(datetime.now().strftime("%Y%m%d%H%M%S"))}{self.filename}'
+        save_path = os.path.join(media_path, unique_filename)
         open(save_path, 'wb').write(file.content)
 
         db = GetDB(config.database_path)
         db.cursor.execute(f"DELETE FROM images WHERE sound_id=\"{self.sound_id}\"")
-        db.cursor.execute("INSERT INTO images(sound_id, image_id, folder) VALUES(?,?,?)", (self.sound_id, hashed_filename, self.filetype))
+        db.cursor.execute("INSERT INTO images(sound_id, image_id, folder) VALUES(?,?,?)", (self.sound_id, unique_filename, self.filetype))
         db.commit()
         db.close()
 

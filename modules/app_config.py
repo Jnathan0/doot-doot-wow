@@ -41,7 +41,6 @@ defaults_map = {
     "log_channel": None,
     "reverse_char": "-",
     "image_size_limit": 800000,
-    "redis_dump_dir": "/db"
 }
 
 # List of cogs to load into the bot
@@ -105,7 +104,6 @@ class AppConfig():
         self.sounds_queue = self._create_sounds_queue()
         self.worker_queue = self._create_worker_queue()
         self.metadata_queue = self._create_metadata_queue()
-        self._set_redis_dump_dir()
 
     def _get_config(self):
         base_path = str(Path(__file__).resolve().parents[1])
@@ -224,12 +222,5 @@ class AppConfig():
 
     def _create_metadata_queue(self):
         return Queue('metadata', connection=self.redis_connection)
-
-    def _set_redis_dump_dir(self):
-        try:
-            self.redis_connection.config_set("DIR", self.redis_dump_dir)
-        except Exception as e:
-            print(f"Error setting redis dump.rdb path:\n{e}")
-
 
 config = AppConfig()

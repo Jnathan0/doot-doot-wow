@@ -12,4 +12,4 @@ ADD ./ /doot-doot/
 
 WORKDIR /doot-doot
 RUN pip3 install -r requirements.txt
-CMD ["/usr/bin/bash", "-c", "redis-server redis.conf && python3 main.py"]
+CMD ["/bin/bash", "./init-app.sh"]
