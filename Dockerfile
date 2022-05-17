@@ -8,8 +8,14 @@ RUN apt install net-tools -y
 RUN apt install nano -y 
 RUN apt install inetutils-ping -y
 
-ADD ./ /doot-doot/
+# Install dumb-init for container init process 
+# See more at: https://github.com/Yelp/dumb-init
+RUN curl -sSfLo https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64 /usr/bin/dumb-init
+RUN chmod 755 /usr/bin/dumb-init
 
+ADD ./ /doot-doot/
 WORKDIR /doot-doot
 RUN pip3 install -r requirements.txt
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/bin/bash", "./init-app.sh"]
