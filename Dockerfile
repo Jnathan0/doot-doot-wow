@@ -10,7 +10,7 @@ RUN apt install inetutils-ping -y
 
 # Install dumb-init for container init process 
 # See more at: https://github.com/Yelp/dumb-init
-RUN curl -sSfLo https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64 /usr/bin/dumb-init
+RUN curl -sSfLo /usr/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64
 RUN chmod 755 /usr/bin/dumb-init
 
 ADD ./ /doot-doot/
