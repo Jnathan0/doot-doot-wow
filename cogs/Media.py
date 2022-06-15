@@ -148,7 +148,7 @@ class Media(commands.Cog, commands.Command):
     @add.error #error handaling for the add function
     async def upload_error(self,ctx,error):
         if isinstance(error, commands.MissingRole):#if .has_role returns with MissingRole error, send message
-            await ctx.send(format_markdown("Cannot restart, \'owb\' role required"))
+            await ctx.send(format_markdown("Cannot add, \'owb\' role required"))
         if isinstance(error, Image_Too_Large_Error):
             await ctx.send(error)
         if isinstance(error, Error):

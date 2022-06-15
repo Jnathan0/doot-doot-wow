@@ -23,7 +23,6 @@ required = [
             'owb_id',
             'image_size_limit'
             ]
-
 defaults_map = {
     "token": None,
     "prefix": "'",
@@ -87,11 +86,10 @@ class AppConfig():
     """
     def __init__(self):
         self._config = self._get_config()
-        self.extensions = __extensions__
         # Lazily set each attribute in "required" as an object attribute
         for item in defaults_map.keys(): 
             setattr(self, item, self._get_attribute_value(item))
-
+        self.extensions = __extensions__
         self._validate_paths()
         self.metadata_db_path = self._validate_metadata_db_path()
         self.database_path = self._validate_sounds_db_path()
@@ -124,7 +122,7 @@ class AppConfig():
         """
         try:
             value = self._config[attribute_name]
-            if value == "" or value == None:
+            if (value == "") or (value == None):
                 value = os.getenv(attribute_name.upper(), default = defaults_map[attribute_name])
                 if value is None:
                     raise Config_Key_Not_Exist_Error(attribute_name)
