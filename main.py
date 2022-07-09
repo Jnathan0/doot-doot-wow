@@ -30,7 +30,11 @@ client = Bot(
     command_prefix=config.prefix, pm_help=True, case_insensitive=True)
 
 # Loading special extension for Eval
-client.load_extension('jishaku')
+# TODO: Figure out if jishaku extension is useful for admin
+#   - If so, break out into a cog to limit with admin scope
+# NOTE: Disable for now for security concerns
+# client.load_extension('jishaku')
+
 # Initialization of bot and logging in
 DiscordComponents(client)
 client.start
