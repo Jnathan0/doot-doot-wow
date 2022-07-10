@@ -51,7 +51,8 @@ __extensions__ = [
     'Stats',
     'Media',
     'Entrance',
-    'ModTools'
+    'ModTools',
+    'Help'
 ]
 
 class AppConfig():

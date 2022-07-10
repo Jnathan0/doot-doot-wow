@@ -27,12 +27,13 @@ client = Bot(
     description="Shitposting for all! | The Soundboard | 1 in 500 chance to be rickrolled!",
     command_prefix=config.prefix,
     pm_help=True, 
-    case_insensitive=True
+    case_insensitive=True,
+    help_command=None
     )
 
 client.redisworker = RedisWorker()
 # Loading special extension for Eval
-client.load_extension('jishaku')
+# client.load_extension('jishaku')
 # Initialization of bot and logging in
 DiscordComponents(client)
 client.start
