@@ -261,3 +261,5 @@ images/*.png
 config.json
 pid.txt
 /include
+dump.rdb
+nohup.out
