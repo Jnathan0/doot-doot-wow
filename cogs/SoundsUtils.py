@@ -8,8 +8,6 @@ from modules.helper_functions import *
 from modules.errors import *
 from modules.aliases import DisplayablePath
 from modules.metadata import update_metadata
-from modules.quicksounds import Quicksound
-from modules.entrance import Entrance
 
 # import for buttons and dropdown UI
 from discord_components import DiscordComponents, ComponentsBot, Button, Select, SelectOption
@@ -25,7 +23,11 @@ class SoundsUtils(commands.Cog):
     @commands.command()
     @commands.guild_only()
     async def sounds(self, ctx):
-        """View a list of categories and their sounds"""
+        """
+        View a list of categories and their sounds
+        Will DM you a output of sounds, folders, and the sounds in the folders.
+        Example Usage: `sounds`
+        """
         member = ctx.message.author
         if ctx.message.mentions:
             try:
@@ -77,7 +79,11 @@ class SoundsUtils(commands.Cog):
     @commands.command()
     @commands.guild_only()
     async def folders(self, ctx):
-        """View the different sound categories or view all the sounds in a specific category by specifying the category ex) 'folders borat"""
+        """
+        View the different sound categories or 
+        view all the sounds in a specific category by specifying the category
+        Example usage: `folders borat`
+        """
         command = ctx.message.content.split(config.prefix)[1]
         message = ""
         if len(command.split()) > 1:
@@ -94,9 +100,13 @@ class SoundsUtils(commands.Cog):
         await ctx.send(format_markdown(message))
 
     @commands.group(aliases=['1', '2', '3'])
-    # @commands.command(aliases=['1','2','3'])
     @commands.guild_only()
     async def quicksounds(self, ctx):
+        """
+        Assign a sound to numerical 1, 2 and 3 numbers as a shortcut to play a sound
+        (Aka instead of typing a sound name out, just type the number)
+        Example usage (for the slot 1 quicksound): `1`
+        """
         await ctx.message.delete()
         command = ctx.message.content.split(config.prefix)[1]
         member = ctx.message.author.id
@@ -120,6 +130,10 @@ class SoundsUtils(commands.Cog):
     @quicksounds.group()
     @commands.guild_only()
     async def info(self, ctx):
+        """
+        Get info on the current quicksounds set for the user
+        Example Usage: `quicksounds info`
+        """
         member = ctx.message.author.id
         db = GetDB(config.database_path)
         db.cursor.execute(f"SELECT alias,sound_id FROM QUICKSOUNDS WHERE user_id={member} ORDER BY alias")
@@ -133,6 +147,10 @@ class SoundsUtils(commands.Cog):
     @quicksounds.group()
     @commands.guild_only()
     async def set(self ,ctx, *, argument):
+        """
+        Set a sound to a quicksound slot via UI prompt.
+        Example Usage: `quicksounds set fart long`
+        """
         member = ctx.message.author.id
         input_sound = str(argument).split(' ')
         if len(input_sound) == 2:
@@ -190,55 +208,83 @@ class SoundsUtils(commands.Cog):
             return
                 
 
-    @commands.command()
+    @commands.group()
     @commands.guild_only()
     async def entrance(self, ctx):
-        if len(ctx.message.content.split(config.prefix+"entrance")[1]) < 1:
-            await ctx.send(format_markdown("Help: \nset: set an intro sound for yourself\n     Usage: 'entrance set doc bullets\nremove: unset an entrance sound for yourself\n   usage: 'entrance remove\ninfo: tells you your set entrance sound\n    usage: 'entrance info"))
-            return
-        message = ctx.message.content
+        """
+        Plays a sound when you enter a voice channel to announce your entry. 
+        Will not play unless you have been out of voice for more than an hour since your last entry has played.
+        """
+
+    @entrance.group()
+    @commands.guild_only()
+    async def set(self, ctx, *args):
+        """
+        Set a sound to play when you enter a voice channel.
+        Sound only plays if its been more than an hour since it last played. 
+        Example Usage: `entrance set fart long`
+        """
+        if len(args) == 0:
+            group = 'root'
+            filename = args[0]
+            sound_id = filename
+        if len(args) == 1:
+            group = args[0]
+            filename = args[1]
+            sound_id = f"{group} {filename}"
         try:
-            obj = Entrance(ctx, message)
-
+            if not checkExists(group, filename):
+                raise Sound_Not_Exist_Error
+            member_id = ctx.message.author.id
             db = GetDB(config.database_path)
-
-            if obj.message_subcommand == 'set':
-                x = obj.get_entrance_alias()
-                db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(obj.member,))
-                db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(?,?,?)", (x, obj.member, "NULL"))
-
-                db.commit()
-                await ctx.message.author.send(format_markdown(f"Set entry sound to: \"{x}\" for User {ctx.message.author.name}"))
-            elif obj.message_subcommand == 'remove':
-                db.cursor.execute("DELETE FROM entrance WHERE user_id=?", (obj.member,))
-                db.commit()
-                await ctx.message.author.send(format_markdown("Removed entry sound."))
-            elif obj.message_subcommand == 'info':
-                db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (obj.member,))
-                data = db.cursor.fetchall()
-                if len(data) == 0:
-                    await ctx.message.author.send(format_markdown("You don't have an entry sound set."))
-                    return
-                else:
-                    await ctx.message.author.send(f"{ctx.author.mention} your entrance sound is \"{data[0][0]}\"")
-            else:
-                raise Arguement_Not_Exist_Error
+            db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(member_id,))
+            db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(?,?,?)", (sound_id, member_id, "NULL"))
+            db.commit()
+            await ctx.message.author.send(format_markdown(f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}"))
             db.close()
+            return
 
+        except Sound_Not_Exist_Error as e:
+            await ctx.message.author.send(format_markdown(e))
+            return
+        except Error as e:
+            await ctx.message.author.send(format_markdown("Something happened, please notify the bot owner."))
+            return
+
+    @entrance.group()
+    @commands.guild_only()
+    async def remove(self, ctx):
+        """
+        Remove the entry sound for the user. 
+        This will disable a sound playing when the user enters a voice chat. 
+        Example Usage: `entrance remove`
+        """
+        member_id = ctx.message.author.id
+        db = GetDB(config.database_path)
+        db.cursor.execute("DELETE FROM entrance WHERE user_id=?", (member_id,))
+        db.commit()
+        await ctx.message.author.send(format_markdown("Removed entry sound."))
+        db.close()
+        return
+
+    @entrance.group()
+    @commands.guild_only()
+    async def info(self, ctx):
+        """
+        DMs the user the entrance sound they have set.
+        Example Usage: `entrance info`
+        """
+        member_id = ctx.message.author.id
+        db = GetDB(config.database_path)
+        db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (member_id,))
+        data = db.cursor.fetchall()
+        if len(data) == 0:
+            await ctx.message.author.send(format_markdown("You don't have an entry sound set."))
+            return
+        else:
+            await ctx.message.author.send(f"> {ctx.author.mention} your entrance sound is \"{data[0][0]}\"")
+        db.close()
         
-        except Arguement_Not_Exist_Error as e:
-            await ctx.reply(format_markdown(e))
-            return
-
-        except No_Argument_Error as e:
-            await ctx.reply(format_markdown(e))
-            return
-
-        except Multiple_Argument_Error as e:
-            await ctx.reply(format_markdown(e))
-            return
-
-
 
 def setup(bot):
     bot.add_cog(SoundsUtils(bot))

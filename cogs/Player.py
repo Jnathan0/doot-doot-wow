@@ -10,7 +10,7 @@ class Player(commands.Cog, commands.Command):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(aliases=sounds.aliases)
+    @commands.command(aliases=sounds.aliases, hidden=True)
     @commands.guild_only()
     async def master_command(self, ctx):
         server = ctx.message.guild.voice_client
@@ -84,6 +84,9 @@ class Player(commands.Cog, commands.Command):
     @commands.command(aliases=[])
     @commands.guild_only()
     async def stop(self, ctx):
+        """
+        Stops the currently playing sound if there is one. 
+        """
         await ctx.message.delete()
         server = ctx.message.guild.voice_client
         if server:

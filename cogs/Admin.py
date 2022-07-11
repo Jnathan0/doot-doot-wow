@@ -29,7 +29,8 @@ class Admin(commands.Cog):
     @commands.is_owner()
     async def admin(self, ctx):
         """
-        Top level command to invoke subcommands for admins
+        Top level command to invoke subcommands for admins.
+        Must be bot owner to run.
         """
         if ctx.invoked_subcommand is None:
             await ctx.send(format_markdown("Invalid Admin command invoked"))
@@ -42,8 +43,11 @@ class Admin(commands.Cog):
         Shuts the bot down and kills the process.
         Requires owner permissions.
         """
-        file = discord.File(str(config.gifs_path+"peaceout.gif"))
-        await ctx.send(content="> you're such a turnoff", file=file)
+        try:
+            file = discord.File(str(config.gifs_path+"peaceout.gif"))
+            await ctx.send(content="> you're such a turnoff", file=file)
+        except FileNotFoundError:
+            await ctx.send("> shutting down bot..")
         await self.bot.logout()
         await self.bot.close()
 

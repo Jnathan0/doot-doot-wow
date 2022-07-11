@@ -6,7 +6,8 @@ import asyncio
 import discord
 import datetime
 import time
-from modules import config, sounds
+from modules import sounds, config
+from modules import RedisWorker
 from modules.database import *
 from modules.player import player
 from datetime import datetime as dt
@@ -21,20 +22,18 @@ pid = os.getpid()
 with open('pid.txt','w') as f:
     f.write(str(pid))
 
-# Preparing the cogs
-
-
 # Prefix, description that appear in !help
 client = Bot(
     description="Shitposting for all! | The Soundboard | 1 in 500 chance to be rickrolled!",
-    command_prefix=config.prefix, pm_help=True, case_insensitive=True)
+    command_prefix=config.prefix,
+    pm_help=True, 
+    case_insensitive=True,
+    help_command=None
+    )
 
+client.redisworker = RedisWorker()
 # Loading special extension for Eval
-# TODO: Figure out if jishaku extension is useful for admin
-#   - If so, break out into a cog to limit with admin scope
-# NOTE: Disable for now for security concerns
 # client.load_extension('jishaku')
-
 # Initialization of bot and logging in
 DiscordComponents(client)
 client.start
@@ -47,7 +46,7 @@ async def on_ready():
                      f'Logged in as {client.user.name} (ID: {client.user.id}) | Connected to {len(client.guilds)} '
                      f'servers with a total of {len(client.users)} users')
     await client.change_presence(activity=discord.Game(
-        name='Type \'h for help | Prefix is ' + config.prefix)) #rich presence dialog, shows up in discord in the members list when we come online
+        name=f'Type \'h for help | Prefix is {config.prefix}')) #rich presence dialog, shows up in discord in the members list when we come online
 
 @client.event
 async def on_guild_join(guild):
@@ -96,6 +95,18 @@ async def on_message(message):
                          f"{wheremessage}!", client, "INFO")
         await client.process_commands(message)
 
+
+# Adding the cogs to the bot
+if __name__ == '__main__':
+    for extension in config.extensions:
+        try:
+            client.load_extension("cogs." + extension)
+        except Exception as e:
+            Logger.log(f"Error occurred while loading cog {extension} - Error: {e}", client, "ERROR")
+            print(traceback.format_exc())
+
+client.run(config.token)
+
 """
 TODO: this is for archiving pins to a specific text channel for a server.
 @client.event
@@ -126,13 +137,3 @@ async def on_message_edit(before, after):
 
         await archive.send(embed=embedvar)
 """
-# Adding the cogs to the bot
-if __name__ == '__main__':
-    for extension in config.extensions:
-        try:
-            client.load_extension("cogs." + extension)
-        except Exception as e:
-            Logger.log(f"Error occurred while loading cog {extension} - Error: {e}", client, "ERROR")
-            print(traceback.format_exc())
-
-client.run(config.token)

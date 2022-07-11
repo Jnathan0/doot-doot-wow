@@ -15,7 +15,7 @@ def format_markdown(string):
     """
     Takes a string and formats them in discord markdown style using backticks.
     """
-    return "```\n{}\n```".format(string)
+    return f"```\n{string}\n```"
 
 
 def isLoud(savepath):

@@ -21,7 +21,14 @@ class Media(commands.Cog, commands.Command):
     @commands.guild_only()
     @commands.has_role(config.owb_id)#decorator to see if whoever requested the command has the role specified, takes roleid argument in int or string form. 
     async def add(self, ctx):
-        '''Upload a sound file and add it to the library.\nCommand will be filename w/o file extension (ex. \'airhorn).\nYou can add to group like: 'add wow'''
+        """
+        Upload a sound file and add it to the bots sound library.
+        \nCommand will be filename w/o file extension (ex. `airhorn.mp3` will become `airhorn`).
+        \n> Example Usage (adding a sound):\n upload a supported sound file named what you want the command name to be and then use the `add` command
+        \n> (For example, the user uploads airhorn.mp3, then in the same message uses the `add` command. `airhorn.mp3` will become the `airhorn` command in the bot)
+        \nA sound can be added to a folder, which can contain multiple sounds.
+        \n> Example Usage (adding a sound to a folder):\n `add foldername soundname`
+        """
         command = ctx.message.content.split(config.prefix)[1]
 
         print(ctx.message.attachments[0].content_type.split('/')[0])
@@ -148,8 +155,10 @@ class Media(commands.Cog, commands.Command):
     @add.error #error handaling for the add function
     async def upload_error(self,ctx,error):
         if isinstance(error, commands.MissingRole):#if .has_role returns with MissingRole error, send message
-            await ctx.send(format_markdown("Cannot restart, \'owb\' role required"))
+            await ctx.send(format_markdown("Cannot add, \'owb\' role required"))
         if isinstance(error, Image_Too_Large_Error):
+            await ctx.send(error)
+        if isinstance(error, Error):
             await ctx.send(error)
 
 def setup(bot):

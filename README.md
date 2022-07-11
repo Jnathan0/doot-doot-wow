@@ -3,6 +3,36 @@
 Doot Doot is a discord bot for playing sound files in a voice channel. Users can upload files to the bot and query stats. Metadata is cached using Redis and persistent data is stored using sqlite3. 
 
 
+# Docker 
+
+## Docker Environment Variables
+
+This is a table of environment variables that can be set before running the container.
+It includes the ENV VAR name, description and default value and type. 
+Environment Variables that are (required) need values in order for the app to run.
+
+|  Env Var name            |Description          |Default Value                |Type  |
+|----------------|-------------------------------|-----------------------------|------|
+|TOKEN (required)|The discord api token for your bot |NONE            |	  STRING|
+|PREFIX        |The command prefix to call commands            |'            |STRING      |
+|SUB_CMD_SEP          |The command separator for subcommands|Space (aka " ")|STRING      |
+|REDIS_ADDRESS|Endpoint address for the redis cache| Localhost| IP ADDRESS OR URL
+|REDIS_PORT| The port number to access the redis cache| 6379|INT
+|REDIS_CHARSET|The supported charset to use with the redis cache| UTF-8|STRING
+|SOUNDS_PATH| A path to specify the parent directory that contains all sound files|/sounds|STRING
+|GIFS_PATH| A path to specify the parent directory that contains all the .gif files|/gifs|STRING
+|IMAGES_PATH| A path to specify the parent directory that contains all static images|/images|STRING
+|VIDEOS_PATH| A path to specify the parent directory that contains all video files|/videos|STRING
+|DATABASE_PATH| A path to specify the parent directory that contains the sqlite3 .db file for sounds|/db|STRING
+|METADATA_DB_PATH| A path to specify the parent directory that contains the sqlite3 .db file for persistent app metadata|/db|STRING
+|OWB_ID (required)| The discord role id or string that specifies the discord role to use the bot (this must be set to use certain features like uploading sounds)|None|STRING or INT
+|LOG_CHANNEL (reqiured)| The discord channel ID that the bot posts log events to|NONE|INT
+|REVERSE_CHAR| The character that is used after a sound command to play the sound in reverse| - |STRING|
+|IMAGE_SIZE_LIMIT| The maximum image size (in bytes) that can be uploaded to the app| 800000 (8 MB)|INT
+|REDIS_DUMP_DIR| The path that contains the .rdb file to load into redis-server during app start|/db|PATH
+|REDIS_DUMPFILE| The filename with .rdb extension to load into redis-server for persistent cache data| dump.rdb|STRING
+
+
 # Getting Started
 
 **System Package Requirements**

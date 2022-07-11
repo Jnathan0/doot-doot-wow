@@ -2,14 +2,13 @@ import json
 import os
 import redis
 import sys
-from redis import connection
 from pathlib import Path
 from rq import Queue 
 from redis import Redis
 from modules.errors import *
 
 #TODO:
-# - Change config attributes to get from the confi.js and refactor out the docker env reading
+# - Refactor the config object creation to be created in main and then added as an attribute to the bot "client" class
 
 __all__ = ('config')
 
@@ -18,14 +17,32 @@ required = [
             'token', 
             'prefix', 
             'sub_cmd_sep', 
-            'redis',
             'reverse_char',
             'database_folder_path',
             'media_path',
             'owb_id',
             'image_size_limit'
             ]
+defaults_map = {
+    "token": None,
+    "prefix": "'",
+    "sub_cmd_sep": ' ',
+    "redis_address": "localhost",
+    "redis_port": 6379,
+    "redis_charset": "utf-8",
+    "sounds_path": "/sounds",
+    "gifs_path": "/gifs",
+    "images_path": "/images",
+    "videos_path": "/videos",
+    "database_path": "/db",
+    "metadata_db_path": "/db",
+    "owb_id": None,
+    "log_channel": None,
+    "reverse_char": "-",
+    "image_size_limit": 800000,
+}
 
+# List of cogs to load into the bot
 __extensions__ = [
     'Admin',
     'Player',
@@ -34,10 +51,9 @@ __extensions__ = [
     'Stats',
     'Media',
     'Entrance',
-    'ModTools'
+    'ModTools',
+    'Help'
 ]
-
-
 
 class AppConfig():
     """
@@ -70,21 +86,14 @@ class AppConfig():
             metadata_queue - Queue object for metadata woker 
     """
     def __init__(self):
-        self.is_docker = self._is_in_container()
         self._config = self._get_config()
-        self.extensions = __extensions__
         # Lazily set each attribute in "required" as an object attribute
-        for item in required: 
+        for item in defaults_map.keys(): 
             setattr(self, item, self._get_attribute_value(item))
-
-        # database pathing
-        self.database_path = self._get_database_paths()
-
-        # media pathing
-        self.sounds_path = self._get_media_paths("sounds")
-        self.gifs_path = self._get_media_paths("gifs")
-        self.meme_path = self._get_media_paths("images")
-        self.videos_path = self._get_media_paths("videos")
+        self.extensions = __extensions__
+        self._validate_paths()
+        self.metadata_db_path = self._validate_metadata_db_path()
+        self.database_path = self._validate_sounds_db_path()
 
         # connections to redis for caching 
         self.redis_connection = self._create_redis_connection()
@@ -94,128 +103,115 @@ class AppConfig():
         self.sounds_queue = self._create_sounds_queue()
         self.worker_queue = self._create_worker_queue()
         self.metadata_queue = self._create_metadata_queue()
-        
-    def _is_in_container(self):
-        if os.environ.get("IS_DOCKER"):
-            return True
-        else:
-            return False
 
     def _get_config(self):
-        if self.is_docker:
-            return None
-
         base_path = str(Path(__file__).resolve().parents[1])
         config_path = base_path+"/config.json"
         try:
             config_file = open(config_path, 'r')
         except FileNotFoundError as e: #TODO: make this into a custom error
-            print(f"ERROR: No config file found at path: {base_path}")
-            sys.exit(1)
+            print(f"Warning: No config file found at path: {base_path}")
+            return None
         return json.loads(config_file.read())
 
     def _get_attribute_value(self, attribute_name):
-        if self.is_docker:
-            try:
-                value = os.getenv(attribute_name.upper())
+        """
+        Takes an attribute name, looks it up in the config for its value.
+        If there is no value in the config, it looks for an environment variable of the same name.
+        If that is not found it throws error. 
+        
+        """
+        try:
+            value = self._config[attribute_name]
+            if (value == "") or (value == None):
+                value = os.getenv(attribute_name.upper(), default = defaults_map[attribute_name])
                 if value is None:
                     raise Config_Key_Not_Exist_Error(attribute_name)
-                return value
-            except Config_Key_Not_Exist_Error as e:
-                print(f"{e}")
-                sys.exit(1)
-        else:
-            try:
-                value = self._config[attribute_name]
-                if value == "" or value == None:
-                    raise Config_Key_Not_Exist_Error(attribute_name)
-                return value
-            except Config_Key_Not_Exist_Error as e:
-                print(f"{e}")
-                sys.exit(1)
-            except Error as e:
-                print(f"{e}")
-                sys.exit(1)
+            print(f"Value for {attribute_name} is: {value}")
+            return value
 
-    def _get_media_paths(self, attribute_name):
-        if self.is_docker:
+        except TypeError as e:
+            value = os.getenv(attribute_name.upper(), default = defaults_map[attribute_name])
+            if value is None:
+                raise Config_Key_Not_Exist_Error(attribute_name)
+            print(f"Value for {attribute_name} is: {value}")
+            return value
+
+        except Config_Key_Not_Exist_Error as e:
+            print(f"{e}")
+            sys.exit(1)
+
+        except Error as e:
+            print(f"{e}")
+            sys.exit(1)
+
+    def _validate_paths(self):
+        paths = {
+                "sounds path": self.sounds_path, 
+                "gifs path":   self.gifs_path, 
+                "videos path": self.videos_path, 
+                "images path": self.images_path
+                }
+        for key,value in paths.items():
             try:
-                if not os.path.isdir(f"/media/{attribute_name}"):
-                    raise Directory_Not_Found_Error(message=f"Error: Configuration directory not found: /media/{attribute_name}")
-                return str(f"/media/{attribute_name}")
+                if not os.path.isdir(value):
+                    raise Directory_Not_Found_Error(message=f"Error: Required directory not found \"{key}\", please make sure this directory exists and is a valid config value.")
             except Directory_Not_Found_Error as e:
                 sys.exit(1)
-        if self._config["paths"][attribute_name] != '':
-            return str(self._config["paths"][attribute_name])
-        else:
-            return str(self.media_path)+f"{attribute_name}/"
 
-
-    def _get_database_paths(self):
+    def _validate_metadata_db_path(self):
         try:
-            if self.is_docker:
-                if not os.path.isdir("/db"):
-                    raise Directory_Not_Found_Error(message="Error: Configuration directory not found: /db")
-                
-                if not os.path.isfile("/doot-doot/db/sounds.db"):
-                    if not os.path.isfile("/doot-doot/db/sounds.sql"):
-                        raise File_Not_Found_Error(message="Error: Setup file not found: sounds.sql\nThis file is required to build the sounds database.\nExiting...")
-                    print("No sounds.db file found, creating database file...")
-                    os.system("/bin/bash -c \"cd /db && /usr/bin/sqlite3 sounds.db < /doot-doot/db/sounds.sql\"")
+            if not os.path.isfile(f"{str(self.metadata_db_path)}/metadata.db"):
+                print("Metadata database file not found, creating database..")
+                app_path = Path(__file__).resolve().parents[1]
+                if not os.path.isfile(f"{app_path}/db/metadata.sql"):
+                    print("File \"metadata.sql\" not found, required to create the metadata database.\nExiting...")
+                    sys.exit(1)
+                os.system(f"/bin/bash -c \"cd {str(self.metadata_db_path)} && /usr/bin/sqlite3 metadata.db < {app_path}/db/metadata.sql\"")
+                return f"{str(self.database_path)}/metadata.db"
+            return f"{str(self.database_path)}/metadata.db"
+       
+        except Exception as e:
+            print(e)
+            sys.exit(1)
 
-                if not os.path.isfile("/doot-doot/db/metadata.db"):
-                    if not os.path.isfile("/doot-doot/db/metadata.sql"):
-                        raise File_Not_Found_Error(message="Error: Setup file not found: metadata.sql\nThis file is required to build the metadata database.\nExiting...")
-                    print("No metadata.db file found, creating database file...")                   
-                    os.system("/bin/bash -c \"cd /db && /usr/bin/sqlite3 metadata.db < /doot-doot/db/metadata.sql\"")
-                return "/db/sounds.db"
-            
-            if self._config["database_folder_path"] == '':
-                raise KeyError
-            if not os.path.isfile(self._config["database_folder_path"]+"sounds.db"):
-                if not os.path.isfile(self._config["database_folder_path"]+"sounds.sql"):
-                    raise File_Not_Found_Error(message="Error: Configuration file not found: sounds.sql")
-                print("No sounds.db file found, creating database file.")
-                os.system(f"cd {self._config['database_folder_path']} && sqilte3 sounds.db < sounds.sql")
-            return self._config['database_folder_path']+"sounds.db"
-
-        except File_Not_Found_Error as e:
+    def _validate_sounds_db_path(self):
+        try:
+            if not os.path.isfile(f"{str(self.database_path)}/sounds.db"):
+                print("Sounds database file not found, creating database..")
+                app_path = Path(__file__).resolve().parents[1]
+                if not os.path.isfile(f"{app_path}/db/sounds.sql"):
+                    print("File \"sounds.sql\" not found, required to create the sounds database.\nExiting...")
+                    sys.exit(1)
+                os.system(f"/bin/bash -c \"cd {str(self.database_path)} && /usr/bin/sqlite3 sounds.db < {app_path}/db/sounds.sql\"")
+                return f"{str(self.database_path)}/sounds.db"
+            return f"{str(self.database_path)}/sounds.db"
+        
+        except Exception as e:
             print(e)
             sys.exit(1)
-        except Directory_Not_Found_Error as e:
-            print(e)
-            sys.exit(1)
-        except KeyError as e:
-            print("Value for 'database_folder_path' not found, please assign value for it in the config.js")
-            sys.exit(1)
-        except Error as e:
-            print(e)
 
 
     def _create_redis_connection(self):
-        if self.is_docker:
-            try:
-                address = os.getenv("REDIS_ADDRESS", default="localhost")
-                port = os.getenv("REDIS_PORT", default=6379)
-                charset = os.getenv("REDIS_CHARSET", default="utf-8")
-                return redis.StrictRedis(address, port, charset)
-            except KeyError as e:
-                print(f"ERROR: Could not get value for Redis configuration\n{e}")
-                sys.exit(1)
+        try:
+            address = self.redis_address
+            port = self.redis_port
+            charset = self.redis_charset
+            return redis.StrictRedis(address, port, db = 0, charset = charset)
+        except Exception as e:
+            print(f"EXCEPTION: {e}")
+            sys.exit(1)
 
-        return redis.StrictRedis(self.redis["address"], self.redis["port"], charset = self.redis["charset"])
 
     def _create_redis_metadata_connection(self):
-        if self.is_docker:
-            try:
-                address = os.getenv("REDIS_ADDRESS", default="localhost")
-                port = os.getenv("REDIS_PORT", default=6379)
-                charset = os.getenv("REDIS_CHARSET", default="utf-8")
-                return redis.StrictRedis(address, port, db = 1, charset = charset, decode_responses = True)
-            except KeyError as e:
-                print(f"ERROR: Could not get value for Redis configuration\n{e}")
-                sys.exit(1)
-        return redis.StrictRedis(self.redis["address"], self.redis["port"], db = 1, charset = self.redis["charset"], decode_responses = True)
+        try:
+            address = self.redis_address
+            port = self.redis_port
+            charset = self.redis_charset
+            return redis.StrictRedis(address, port, db = 1, charset = charset, decode_responses = True)
+        except Exception as e:
+            print(f"EXCEPTION: \n{e}")
+            sys.exit(1)
 
     def _create_sounds_queue(self):
         return Queue('plays', connection=self.redis_connection)
@@ -225,8 +221,5 @@ class AppConfig():
 
     def _create_metadata_queue(self):
         return Queue('metadata', connection=self.redis_connection)
-
-
-
 
 config = AppConfig()

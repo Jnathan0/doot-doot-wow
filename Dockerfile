@@ -1,31 +1,21 @@
 FROM python:3.8.12-bullseye
 
-# Env var to tell app is in a continer
-ENV IS_DOCKER=1
-
-# Command calling 
-ENV REVERSE_CHAR='-'
-ENV SUB_CMD_SEP=' '
-ENV PREFIX="'"
-
-# Media limit setting
-ENV IMAGE_SIZE_LIMIT=8000000
-
-# Redis settings
-ENV REDIS=1
-ENV REDIS_ADDRESS="localhost"
-ENV REDIS_PORT=6379
-ENV REDIS_CHARSET="utf-8"
-
 RUN apt update
 RUN apt install redis-server -y
 RUN apt install sqlite3 -y
 RUN apt install ffmpeg -y
+RUN apt install net-tools -y
+RUN apt install nano -y 
+RUN apt install inetutils-ping -y
 
+# Install dumb-init for container init process 
+# See more at: https://github.com/Yelp/dumb-init
+RUN curl -sSfLo /usr/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64
+RUN chmod 755 /usr/bin/dumb-init
 
 ADD ./ /doot-doot/
-
 WORKDIR /doot-doot
 RUN pip3 install -r requirements.txt
-RUN service redis-server start
-CMD ["python3", "main.py"]
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/bin/bash", "./init-app.sh"]
