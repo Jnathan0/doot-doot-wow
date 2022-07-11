@@ -224,7 +224,6 @@ class SoundsUtils(commands.Cog):
         Sound only plays if its been more than an hour since it last played. 
         Example Usage: `entrance set fart long`
         """
-        print(args)
         if len(args) == 1:
             group = 'root'
             filename = args[0]
