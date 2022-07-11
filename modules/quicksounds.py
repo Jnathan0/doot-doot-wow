@@ -1,3 +1,7 @@
+##NOTE
+## Depricated with commit 51ece6c7a24820967365d6f3aa4b01d211a2ce57
+## Will probably be deleted later
+
 from .aliases import sounds
 from .errors import *
 

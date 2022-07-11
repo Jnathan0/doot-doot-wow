@@ -8,8 +8,6 @@ from modules.helper_functions import *
 from modules.errors import *
 from modules.aliases import DisplayablePath
 from modules.metadata import update_metadata
-from modules.quicksounds import Quicksound
-from modules.entrance import Entrance
 
 # import for buttons and dropdown UI
 from discord_components import DiscordComponents, ComponentsBot, Button, Select, SelectOption
