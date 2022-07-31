@@ -93,7 +93,6 @@ class ModTools(commands.Cog):
         #       - Generate a message to send to members that use this sound for the above datastructures
         #       - Somehow catch the discord.ext.commands.errors.MissingRequiredArgument and respond w/ a helpdoc
         member = ctx.message.author
-        print(args)
         argslen = len(args)
         if argslen == 1:
             sound_id = args[0]
