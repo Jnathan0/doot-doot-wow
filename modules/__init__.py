@@ -15,3 +15,4 @@ from .helper_functions import *
 from .imgprocessing import *
 from .redisworkers import RedisWorker
 from .command_help import *
+from .modtools import *

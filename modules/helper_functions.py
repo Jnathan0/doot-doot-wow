@@ -110,7 +110,7 @@ def increment_playcount(sound_id):
 # QUICKSOUNDS DB INTERACTIONS #
 ###############################
 
-def update_quicksound(member, number, sound):
+def update_quicksound(member, number, sound, reverse):
     """
     Function to remove a quicksound associated with a discord user ID and a quicksound slot number, 
     and then update the entry with a new sound ID
@@ -119,9 +119,10 @@ def update_quicksound(member, number, sound):
         - member: discord user ID number 
         - number: the quicksound slot to update 
         - sound: the sound ID to update the value to in the entry
+        - reverse: numerical bool (1 or 0) signifying if the sound should be played in reverse
     """
     db = GetDB(config.database_path)
     db.cursor.execute(f"DELETE FROM quicksounds WHERE user_id={member} AND alias={number}")
-    db.cursor.execute(f"INSERT INTO quicksounds (sound_id, user_id, alias) VALUES (?, ?, ?)", (sound, member, number))
+    db.cursor.execute(f"INSERT INTO quicksounds (sound_id, user_id, alias, reverse) VALUES (?, ?, ?, ?)", (sound,member,number,reverse, ))
     db.commit()
     db.close()
