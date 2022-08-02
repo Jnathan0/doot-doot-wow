@@ -53,16 +53,20 @@ class Entrance(commands.Cog):
             else:
                 db = GetDB(config.database_path)
 
-                db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (uid,))
-                sound = db.cursor.fetchall()[0][0]
-                if len(sound) == 0:
+                db.cursor.execute("SELECT sound_id, reverse FROM entrance WHERE user_id=?", (uid,))
+                data = db.cursor.fetchall()[0]
+                if len(data) == 0:
                     return
 
-
+            sound = data[0]
+            reverse = data[1]
+            options = None
+            if reverse:
+                options = '-af reverse'
             await asyncio.sleep(.7) # Let slow client connections get their ears open before we connect and play sounds
 
             vc = await channel.connect()
-            vc.play(discord.FFmpegPCMAudio(sounds.alias_dict[sound].path))
+            vc.play(discord.FFmpegPCMAudio(sounds.alias_dict[sound].path, options=options))
             with audioread.audio_open(sounds.alias_dict[sound].path) as f:
                 #Start Playing
                 while vc.is_playing():
@@ -96,12 +100,16 @@ class Entrance(commands.Cog):
         Sound only plays if its been more than an hour since it last played. 
         Example Usage: `entrance set fart long`
         """
+        reverse = 0
         args = list(args)
-        if len(args) == 0:
+        if args[-1] == '-':
+            reverse = 1
+            args = args[:-1]
+        if len(args) == 1:
             group = 'root'
             filename = args[0]
             sound_id = filename
-        if len(args) == 1:
+        if len(args) == 2:
             group = args[0]
             filename = args[1]
             sound_id = f"{group} {filename}"
@@ -111,7 +119,7 @@ class Entrance(commands.Cog):
             member_id = ctx.message.author.id
             db = GetDB(config.database_path)
             db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(member_id,))
-            db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(?,?,?)", (sound_id, member_id, "NULL"))
+            db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen, reverse) VALUES(?,?,?,?)", (sound_id, member_id, "NULL", reverse))
             db.commit()
             await ctx.message.author.send(format_markdown(f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}"))
             db.close()
