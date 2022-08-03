@@ -48,6 +48,8 @@ class Entrance(commands.Cog):
             channel = member.voice.channel
 
             month_day = datetime.today().strftime("%m-%d")
+            options = None
+
             if month_day in __holiday_map__.keys():
                 sound = random.choice(sounds.alias_dict[__holiday_map__[month_day]]).sound_id
             else:
@@ -59,12 +61,11 @@ class Entrance(commands.Cog):
                     db.close()
                     return
 
-            db.close()
-            sound = data[0]
-            reverse = data[1]
-            options = None
-            if reverse:
-                options = '-af areverse'
+                db.close()
+                sound = data[0]
+                reverse = data[1]
+                if reverse:
+                    options = '-af areverse'
             await asyncio.sleep(.7) # Let slow client connections get their ears open before we connect and play sounds
 
             vc = await channel.connect()
@@ -122,7 +123,10 @@ class Entrance(commands.Cog):
             db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(member_id,))
             db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen, reverse) VALUES(?,?,?,?)", (sound_id, member_id, "NULL", reverse))
             db.commit()
-            await ctx.message.author.send(format_markdown(f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}"))
+            message = f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}"
+            if reverse:
+                message = f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}, with reverse playback"
+            await ctx.message.author.send(format_markdown(message))
             db.close()
             return
 
