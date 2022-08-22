@@ -48,6 +48,7 @@ __extensions__ = [
     'Player',
     'Basics',
     'SoundsUtils',
+    'Quicksounds',
     'Stats',
     'Media',
     'Entrance',

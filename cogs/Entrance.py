@@ -8,6 +8,8 @@ from discord.ext import commands
 from modules.database import GetDB
 from modules.app_config import config
 from modules.player import player
+from modules.errors import *
+from modules.helper_functions import *
 from modules.aliases import sounds
 
 # mapping of mm/dd to holidays
@@ -46,27 +48,33 @@ class Entrance(commands.Cog):
             channel = member.voice.channel
 
             month_day = datetime.today().strftime("%m-%d")
+            options = None
+
             if month_day in __holiday_map__.keys():
                 sound = random.choice(sounds.alias_dict[__holiday_map__[month_day]]).sound_id
             else:
                 db = GetDB(config.database_path)
 
-                db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (uid,))
-                sound = db.cursor.fetchall()[0][0]
-                if len(sound) == 0:
+                db.cursor.execute("SELECT sound_id, reverse FROM entrance WHERE user_id=?", (uid,))
+                data = db.cursor.fetchall()[0]
+                if len(data) == 0:
+                    db.close()
                     return
 
-
+                db.close()
+                sound = data[0]
+                reverse = data[1]
+                if reverse:
+                    options = '-af areverse'
             await asyncio.sleep(.7) # Let slow client connections get their ears open before we connect and play sounds
 
             vc = await channel.connect()
-            vc.play(discord.FFmpegPCMAudio(sounds.alias_dict[sound].path))
+            vc.play(discord.FFmpegPCMAudio(sounds.alias_dict[sound].path, options=options))
             with audioread.audio_open(sounds.alias_dict[sound].path) as f:
                 #Start Playing
                 while vc.is_playing():
                     await asyncio.sleep(f.duration)
             await vc.disconnect()
-            db.close()
 
             # set a key:value pair of userid and entrance sound in the Redis cache and set it to expire in 3600 seconds (1 hour)
             with config.redis_connection.pipeline() as pipe:
@@ -78,6 +86,90 @@ class Entrance(commands.Cog):
         else:
             return
 
+    @commands.group()
+    @commands.guild_only()
+    async def entrance(self, ctx):
+        """
+        Plays a sound when you enter a voice channel to announce your entry. 
+        Will not play unless you have been out of voice for more than an hour since your last entry has played.
+        """
+
+    @entrance.group()
+    @commands.guild_only()
+    async def set(self, ctx, *args):
+        """
+        Set a sound to play when you enter a voice channel.
+        Sound only plays if its been more than an hour since it last played. 
+        Example Usage: `entrance set fart long`
+        """
+        reverse = 0
+        args = list(args)
+        if args[-1] == '-':
+            reverse = 1
+            args = args[:-1]
+        if len(args) == 1:
+            group = 'root'
+            filename = args[0]
+            sound_id = filename
+        if len(args) == 2:
+            group = args[0]
+            filename = args[1]
+            sound_id = f"{group} {filename}"
+        try:
+            if not checkExists(group, filename):
+                raise Sound_Not_Exist_Error
+            member_id = ctx.message.author.id
+            db = GetDB(config.database_path)
+            db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(member_id,))
+            db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen, reverse) VALUES(?,?,?,?)", (sound_id, member_id, "NULL", reverse))
+            db.commit()
+            message = f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}"
+            if reverse:
+                message = f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}, with reverse playback"
+            await ctx.message.author.send(format_markdown(message))
+            db.close()
+            return
+
+        except Sound_Not_Exist_Error as e:
+            await ctx.message.author.send(format_markdown(e))
+            return
+        except Error as e:
+            await ctx.message.author.send(format_markdown("Something happened, please notify the bot owner."))
+            return
+
+    @entrance.group()
+    @commands.guild_only()
+    async def remove(self, ctx):
+        """
+        Remove the entry sound for the user. 
+        This will disable a sound playing when the user enters a voice chat. 
+        Example Usage: `entrance remove`
+        """
+        member_id = ctx.message.author.id
+        db = GetDB(config.database_path)
+        db.cursor.execute("DELETE FROM entrance WHERE user_id=?", (member_id,))
+        db.commit()
+        await ctx.message.author.send(format_markdown("Removed entry sound."))
+        db.close()
+        return
+
+    @entrance.group()
+    @commands.guild_only()
+    async def info(self, ctx):
+        """
+        DMs the user the entrance sound they have set.
+        Example Usage: `entrance info`
+        """
+        member_id = ctx.message.author.id
+        db = GetDB(config.database_path)
+        db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (member_id,))
+        data = db.cursor.fetchall()
+        if len(data) == 0:
+            await ctx.message.author.send(format_markdown("You don't have an entry sound set."))
+            return
+        else:
+            await ctx.message.author.send(f"> {ctx.author.mention} your entrance sound is \"{data[0][0]}\"")
+        db.close()
 
 def setup(bot):
     bot.add_cog(Entrance(bot))
