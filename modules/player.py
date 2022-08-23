@@ -3,6 +3,7 @@ import random
 import asyncio
 from modules import config
 from modules.database import GetDB
+from modules.helper_functions import update_rickroll
 from pathlib import Path
 from discord.ext.commands import CommandNotFound
 from discord.utils import get
@@ -53,6 +54,7 @@ class Player:
         random_chance = random.randint(1, 500)
         if random_chance == 1:
             source = discord.FFmpegPCMAudio(f"{config.sounds_path}/rickroll.mp3")
+            update_rickroll(ctx.message.author.id)
 
         else:
             try:

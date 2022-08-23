@@ -126,3 +126,13 @@ def update_quicksound(member, number, sound, reverse):
     db.cursor.execute(f"INSERT INTO quicksounds (sound_id, user_id, alias, reverse) VALUES (?, ?, ?, ?)", (sound,member,number,reverse, ))
     db.commit()
     db.close()
+
+#############################
+# UPDATE RICKROLL PLAYCOUNT #
+#############################
+
+def update_rickroll(user_id):
+    db = GetDB(config.database_path)
+    db.cursor.execute(f"UPDATE rickroll SET plays=plays+1 WHERE user_id={user_id}")
+    db.commit()
+    db.close()

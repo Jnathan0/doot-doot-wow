@@ -80,7 +80,6 @@ class Player(commands.Cog, commands.Command):
         await msg.delete()
 
 
-
     @commands.command(aliases=[])
     @commands.guild_only()
     async def stop(self, ctx):
