@@ -132,7 +132,7 @@ def update_quicksound(member, number, sound, reverse):
 #############################
 
 def update_rickroll(user_id):
-    db = GetDB(config.metadata_db_path)
+    db = GetDB(config.database_path)
     db.cursor.execute(f"UPDATE rickroll SET plays=plays+1 WHERE user_id={user_id}")
     db.commit()
     db.close()

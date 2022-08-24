@@ -13,9 +13,13 @@ class Player:
     def __init__(self):
         pass
 
+    async def post_rickroll_message(self, ctx):
+        pass #stubbed for now
+
     async def play(self, ctx, sound_object, reverse=False):
         if not ctx.author.voice:
             await ctx.send("You are not in a voice channel")
+            
         voice_channel = ctx.author.voice.channel
 
         try:
@@ -23,9 +27,7 @@ class Player:
                 file = discord.File(str(f"{config.media_path}/{sound_object.media}"))
                 await ctx.send(file=file, delete_after=10)
         except:
-            pass
-        ##################################################################################################
-        
+            pass        
 
         try:
             voice_channel = await voice_channel.connect()
@@ -49,13 +51,17 @@ class Player:
             print(f'Error trying to join a voicechannel: {e}')
             return
 
-        # There is a 1 in 500th chance that it
-        # will do a rickroll instead of the desired sound
+        There is a 1 in 500th chance that it
+        will do a rickroll instead of the desired sound
         random_chance = random.randint(1, 500)
+        random_chance = 1
         if random_chance == 1:
             source = discord.FFmpegPCMAudio(f"{config.sounds_path}/rickroll.mp3")
             update_rickroll(ctx.message.author.id)
-
+            await self.post_rickroll_message(ctx)
+        # DEV
+        return
+        # END DEV
         else:
             try:
                 if reverse == True:
