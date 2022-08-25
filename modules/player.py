@@ -13,12 +13,10 @@ class Player:
     def __init__(self):
         pass
 
-    async def post_rickroll_message(self, ctx):
-        pass #stubbed for now
-
     async def play(self, ctx, sound_object, reverse=False):
         if not ctx.author.voice:
             await ctx.send("You are not in a voice channel")
+            return
             
         voice_channel = ctx.author.voice.channel
 
@@ -50,35 +48,20 @@ class Player:
                 "There was an error processing your request. Please try again. If issues will continue contact bot owner.")
             print(f'Error trying to join a voicechannel: {e}')
             return
+        try:
+            if reverse == True:
+                source = discord.FFmpegPCMAudio(sound_object.path, options='-af areverse')
+                # source = discord.FFmpegPCMAudio(self.filename, options='-af acrusher=1:.45:52:0:log')
+                # source = discord.FFmpegPCMAudio(self.filename, options='-af equalizer=f=50:width_type=o:width=2:g=20') bass boost ear rape 
+                # source = discord.FFmpegPCMAudio(self.filename, options='-af areverse') reverse 
+            else:
+                source = discord.FFmpegPCMAudio(sound_object.path)
 
-        There is a 1 in 500th chance that it
-        will do a rickroll instead of the desired sound
-        random_chance = random.randint(1, 500)
-        random_chance = 1
-        if random_chance == 1:
-            source = discord.FFmpegPCMAudio(f"{config.sounds_path}/rickroll.mp3")
-            update_rickroll(ctx.message.author.id)
-            await self.post_rickroll_message(ctx)
-        # DEV
-        return
-        # END DEV
-        else:
-            try:
-                if reverse == True:
-                    source = discord.FFmpegPCMAudio(sound_object.path, options='-af areverse')
-                    # source = discord.FFmpegPCMAudio(self.filename, options='-af acrusher=1:.45:52:0:log')
-                    # source = discord.FFmpegPCMAudio(self.filename, options='-af equalizer=f=50:width_type=o:width=2:g=20') bass boost ear rape 
-                    # source = discord.FFmpegPCMAudio(self.filename, options='-af areverse') reverse 
-                else:
-                    source = discord.FFmpegPCMAudio(sound_object.path)
-
-                # source = discord.FFmpegPCMAudio(filename, options='-af areverse')
-
-            # edge case: missing file error
-            except FileNotFoundError:
-                await ctx.send(
-                    "There was an issue with playing sound: File Not Found. Its possible that host of bot forgot to copy "
-                    "over a file. If this error occured on official bot please use D.github to report issue.")
+        # edge case: missing file error
+        except FileNotFoundError:
+            await ctx.send(
+                "There was an issue with playing sound: File Not Found. Its possible that host of bot forgot to copy "
+                "over a file. If this error occured on official bot please use D.github to report issue.")
         try:
             voice_channel.play(source, after=lambda: print("played doot"))
             

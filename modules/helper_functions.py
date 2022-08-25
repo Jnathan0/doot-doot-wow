@@ -3,6 +3,8 @@ import calendar
 import subprocess
 import sqlite3
 import os
+import asyncio
+import discord
 from pathlib import Path
 from .database import GetDB
 from .app_config import config
@@ -136,3 +138,7 @@ def update_rickroll(user_id):
     db.cursor.execute(f"UPDATE rickroll SET plays=plays+1 WHERE user_id={user_id}")
     db.commit()
     db.close()
+
+async def post_rickroll_update(ctx):
+    file = discord.File(f"assets/static/rickroll.gif")
+    await ctx.send(file=file, content = f"**{ctx.author.mention} just got rick rolled!\nThey've been rick rolled 42069 times!**")

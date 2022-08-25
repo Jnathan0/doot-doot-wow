@@ -1,6 +1,7 @@
 import random
 import os
 import asyncio
+import random
 from discord.ext import commands
 from modules import config, sounds, player
 from modules.metadata import update_metadata
@@ -27,18 +28,20 @@ class Player(commands.Cog, commands.Command):
         if isinstance(sound_object, list):
             sound_object = random.choice(sound_object)
             sound_id = sound_object.sound_id
-
             call_type = "random"
-            config.sounds_queue.enqueue(increment_playcount, sound_id)
         else:
             sound_id = command
-
             call_type = "direct"
+        
+        # Rickroll logic
+        random_chance = random.randint(1, 500)
+        if random_chance == 1:
+            await player.play(ctx, sounds.alias_dict['rickroll'], reverse = False)
+            update_rickroll(user_id)
+        else:
+            await player.play(ctx, sound_object, reverse)
+            config.worker_queue.enqueue(update_metadata, user_id, sound_id, call_type)
             config.sounds_queue.enqueue(increment_playcount, sound_id)
-
-        await player.play(ctx, sound_object, reverse)
-
-        config.worker_queue.enqueue(update_metadata, user_id, sound_id, call_type)
 
 
     @commands.command(aliases=['r'])
@@ -71,13 +74,19 @@ class Player(commands.Cog, commands.Command):
             sound_id = random_path.sound_id
             config.sounds_queue.enqueue(increment_playcount, sound_id)
 
-        msg = await ctx.send(format_markdown("Random sound: "+str(sound_id)))
-        
-        await player.play(ctx, random_path, reverse)
-        config.worker_queue.enqueue(update_metadata, member, str(sound_id), call_type = "random")
-
-        await asyncio.sleep(10)
-        await msg.delete()
+        # Rickroll logic
+        random_chance = random.randint(1, 500)
+        random_chance = 1
+        if random_chance == 1:
+            await player.play(ctx, sounds.alias_dict['rickroll'], reverse = False)
+            update_rickroll(member)
+            await post_rickroll_update(ctx)
+        else:
+            msg = await ctx.send(format_markdown("Random sound: "+str(sound_id)))
+            await player.play(ctx, random_path, reverse)
+            config.worker_queue.enqueue(update_metadata, member, str(sound_id), call_type = "random")
+            await asyncio.sleep(10)
+            await msg.delete()
 
 
     @commands.command(aliases=[])
