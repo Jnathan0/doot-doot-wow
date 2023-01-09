@@ -38,10 +38,8 @@ class Basics(commands.Cog):
         """
         Shows the Gateway Ping.
         """
-        t1 = time.perf_counter()
-        await ctx.trigger_typing()
-        t2 = time.perf_counter()
-        await ctx.send(f"> **PONG**\n:hourglass: gateway ping: {round((t2 - t1) * 1000)}ms :hourglass:")
+        await ctx.typing()
+        await ctx.send(f"> **PONG**\n:hourglass: gateway ping: {round(self.bot.latency * 1000)}ms :hourglass:")
 
     @commands.command()
     async def github(self, ctx):
@@ -75,5 +73,5 @@ class Basics(commands.Cog):
         if isinstance(error, commands.MissingRole):#if @commands.has_role returns with MissingRole error, send message
             await ctx.send(format_markdown("Cannot restart, \'owb\' role required"))
 
-def setup(bot):
-    bot.add_cog(Basics(bot))
+async def setup(bot):
+   await bot.add_cog(Basics(bot))
