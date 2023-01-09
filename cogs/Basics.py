@@ -12,27 +12,6 @@ class Basics(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # Defining owner only command to reload specific cog allowing to update in example airhorn.cog with new sounds
-    # without restarting whole bot
-    @commands.command(hidden=True)
-    @commands.is_owner()
-    async def reload(self, ctx, *, cog: str):
-        """
-        Restarts the bot, need correct permission to do so.
-        """
-        cogs = config.extensions
-        cog = cog.lower()
-        for c in ctx.bot.cogs:
-            cogs.append(c.replace('Cog', '').lower())
-
-        if cog in cogs:
-            self.bot.unload_extension("cogs." + cog)
-            self.bot.load_extension("cogs." + cog)
-            await ctx.send(f'**{cog}** has been reloaded.')
-        else:
-            await ctx.send(f"I can't find that cog.")
-
-
     @commands.command()
     async def ping(self, ctx: commands.Context):
         """
