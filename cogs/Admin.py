@@ -48,7 +48,6 @@ class Admin(commands.Cog):
             await ctx.send(content="> you're such a turnoff", file=file)
         except FileNotFoundError:
             await ctx.send("> shutting down bot..")
-        await self.bot.logout()
         await self.bot.close()
 
     @commands.guild_only()
@@ -72,9 +71,9 @@ class Admin(commands.Cog):
         Displays runtime stats of the application in markdown embed.
         Sourced from: https://github.com/Carberra/updated-discord.py-tutorial/blob/085113e9bff69a699a25ed1cd91db5744b8755ea/lib/cogs/meta.py#L54-L82
         """
+        print(self.bot.user.avatar)
         embed = Embed(title="Bot Stats",
                 color = ctx.author.color,
-                thumbnail = self.bot.user.avatar_url,
                 timestamp = datetime.utcnow())
 
         proc = Process()
@@ -118,5 +117,5 @@ class Admin(commands.Cog):
 
 
 
-def setup(bot):
-    bot.add_cog(Admin(bot))
+async def setup(bot):
+    await bot.add_cog(Admin(bot))
