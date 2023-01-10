@@ -2,31 +2,56 @@
 ## Depricated with commit 51ece6c7a24820967365d6f3aa4b01d211a2ce57
 ## Will probably be deleted later
 
+import discord
+from discord.ext import commands
 from .aliases import sounds
 from .errors import *
+from .app_config import config
+from .helper_functions import checkExists, update_quicksound, format_markdown
 
 
-class Quicksound:
-    def __init__(self, ctx, message):
-        self.message = message.split("quicksounds ")[1]
-        self.filtered_message = self.message.split(' ')
-        self.member = ctx.message.author.id
-        self.sound = self.parse_subcommand()
-        self.number = self.filtered_message[1]
-        self.error = self.check_exists()
 
-    def parse_subcommand(self):
-        if self.filtered_message[0] != "set":
-            raise No_Argument_Error
-        if int(self.filtered_message[1]) not in range(1,4):
-            raise Slot_Out_Of_Bounds_Error
-        if len(self.filtered_message) == 4:
-            return self.filtered_message[3]
-        if len(self.filtered_message) == 5:
-            return str(self.filtered_message[3]+' '+self.filtered_message[4])
-        else:
-            raise Generic_Error
+class Quicksound(discord.ui.Select):
+    def __init__(self, group, filename, argument):
+        self.group = group
+        self.filename = filename
+        self.argument = argument
+        options=[
+            discord.SelectOption(label="1"),
+            discord.SelectOption(label="2"),
+            discord.SelectOption(label="3")
+            ]
+        super().__init__(placeholder="Select an option",max_values=1,min_values=1,options=options)
+    
+    async def callback(self, interaction: discord.Interaction):
+        member = interaction.user.id
+        try:
+            if not checkExists(self.group, self.filename):
+                raise Sound_Not_Exist_Error
 
-    def check_exists(self):
-        if self.sound not in sounds.alias_dict.keys():
-            raise Sound_Not_Exist_Error
+            # config.worker_queue.enqueue(update_quicksound, member, int(self.values[0]), self.argument)
+
+            await interaction.user.send(format_markdown(f"Quicksound {self.values[0]} updated to \"{self.argument}\"."))
+
+        except No_Argument_Error as e:
+            await interaction.user.send(format_markdown(e))
+            return
+
+        except Slot_Out_Of_Bounds_Error as e:
+            await interaction.user.send(format_markdown(e))
+            return
+
+        except Generic_Error as e:
+            await interaction.user.send(format_markdown(e))
+            return
+        
+        except Sound_Not_Exist_Error as e:
+            await interaction.user.send(format_markdown(e))
+            return
+
+        except Error as e:
+            await interaction.user.send(format_markdown("Something happened, please notify the bot owner."))
+            return
+
+        await interaction.message.delete()
+        return
