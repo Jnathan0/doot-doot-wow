@@ -51,7 +51,7 @@ class Media(commands.Cog, commands.Command):
             except Image_Too_Large_Error as e:
                 print(e)
                 return
-
+        print("i am here")
 
         #TODO: The code below should be refactored into its own module 
         new_dir = False
@@ -161,5 +161,5 @@ class Media(commands.Cog, commands.Command):
         if isinstance(error, Error):
             await ctx.send(error)
 
-def setup(bot):
-    bot.add_cog(Media(bot))
+async def setup(bot):
+    await bot.add_cog(Media(bot))

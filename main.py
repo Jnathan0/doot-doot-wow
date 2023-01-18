@@ -6,47 +6,57 @@ import asyncio
 import discord
 import datetime
 import time
+import aiohttp
 from modules import sounds, config
 from modules import RedisWorker
 from modules.database import *
 from modules.player import player
 from datetime import datetime as dt
+from discord.ext import commands
 from discord.ext.commands import Bot
 from pathlib import Path
 from utils import Logger
 
 # Button UI/UX import
-from discord_components import DiscordComponents
+# from discord_components import DiscordComponents
 
 pid = os.getpid()
 with open('pid.txt','w') as f:
     f.write(str(pid))
 
-# Prefix, description that appear in !help
-client = Bot(
-    description="Shitposting for all! | The Soundboard | 1 in 500 chance to be rickrolled!",
-    command_prefix=config.prefix,
-    pm_help=True, 
-    case_insensitive=True,
-    help_command=None
-    )
+class MyBot(commands.Bot):
+    def __init__(self):
+        super().__init__(
+            description="Shitposting for all! | The Soundboard | 1 in 500 chance to be rickrolled!",
+            command_prefix=config.prefix,
+            pm_help=True, 
+            case_insensitive=True,
+            help_command=None,
+            intents=intents
+        )
+        self.initial_extensions = config.extensions
 
-client.redisworker = RedisWorker()
-# Loading special extension for Eval
-# client.load_extension('jishaku')
-# Initialization of bot and logging in
-DiscordComponents(client)
-client.start
-@client.event
-async def on_ready():
-    # We setup the logger first
-    Logger.setup_logger()
+    async def setup_hook(self):
+        for ext in self.initial_extensions:
+            await self.load_extension("cogs." + ext)
 
-    await Logger.log("Bot startup done!", client, "INFO",
-                     f'Logged in as {client.user.name} (ID: {client.user.id}) | Connected to {len(client.guilds)} '
-                     f'servers with a total of {len(client.users)} users')
-    await client.change_presence(activity=discord.Game(
-        name=f'Type \'h for help | Prefix is {config.prefix}')) #rich presence dialog, shows up in discord in the members list when we come online
+    async def close(self):
+        await super().close()
+
+    async def on_ready(self):
+        # We setup the logger first
+        Logger.setup_logger()
+
+        await Logger.log("Bot startup done!", client, "INFO",
+                        f'Logged in as {client.user.name} (ID: {client.user.id}) | Connected to {len(client.guilds)} '
+                        f'servers with a total of {len(client.users)} users')
+        await client.change_presence(activity=discord.Game(
+            name=f'Type \'h for help | Prefix is {config.prefix}')) #rich presence dialog, shows up in discord in the members list when we come online
+
+intents = discord.Intents.all()
+client = MyBot()
+
+# client.redisworker = RedisWorker()
 
 @client.event
 async def on_guild_join(guild):
@@ -98,14 +108,7 @@ async def on_message(message):
 
 # Adding the cogs to the bot
 if __name__ == '__main__':
-    for extension in config.extensions:
-        try:
-            client.load_extension("cogs." + extension)
-        except Exception as e:
-            Logger.log(f"Error occurred while loading cog {extension} - Error: {e}", client, "ERROR")
-            print(traceback.format_exc())
-
-client.run(config.token)
+    client.run(config.token)  
 
 """
 TODO: this is for archiving pins to a specific text channel for a server.

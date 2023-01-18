@@ -18,7 +18,7 @@ class Help(commands.Cog):
         
 
     def get_helpdoc(self):
-        embed = discord.Embed(title="Commands and subcommands",
+        embed = discord.Embed(title="Help: Commands and subcommands",
                                 description=f"To get more detail on a command and its usage, use `{config.prefix}help <command>`\n(ex. `{config.prefix}help quicksounds`)",
                                 color=discord.Color.green())
         for command in self.global_commands.values():
@@ -42,10 +42,11 @@ class Help(commands.Cog):
         """
         if not args:
             await ctx.send(embed=self.global_helpdoc)
+            return
         if args[0] in self.global_commands.keys():
             command = self.global_commands[args[0]]
             await ctx.send(embed=get_command_help(command))
             
 
-def setup(bot):
-    bot.add_cog(Help(bot))
+async def setup(bot):
+    await bot.add_cog(Help(bot))

@@ -45,14 +45,14 @@ defaults_map = {
 # List of cogs to load into the bot
 __extensions__ = [
     'Admin',
-    'Player',
     'Basics',
+    'Help',
+    'Player',
     'SoundsUtils',
     'Stats',
     'Media',
     'Entrance',
-    'ModTools',
-    'Help'
+    'ModTools'
 ]
 
 class AppConfig():

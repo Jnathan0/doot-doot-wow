@@ -14,7 +14,8 @@ class Player:
 
     async def play(self, ctx, sound_object, reverse=False):
         if not ctx.author.voice:
-            await ctx.send("You are not in a voice channel")
+            await ctx.send("`You are not in a voice channel`")
+            return
         voice_channel = ctx.author.voice.channel
 
         try:

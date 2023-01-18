@@ -91,8 +91,6 @@ class Player(commands.Cog, commands.Command):
         server = ctx.message.guild.voice_client
         if server:
             await server.disconnect()
-        else:
-            await ctx.send(format_markdown("I am not in a voice channel.."))
 
-def setup(bot):
-    bot.add_cog(Player(bot))
+async def setup(bot):
+    await bot.add_cog(Player(bot))

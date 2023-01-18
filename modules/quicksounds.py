@@ -1,7 +1,3 @@
-##NOTE
-## Depricated with commit 51ece6c7a24820967365d6f3aa4b01d211a2ce57
-## Will probably be deleted later
-
 import discord
 from discord.ext import commands
 from .aliases import sounds
@@ -29,7 +25,7 @@ class Quicksound(discord.ui.Select):
             if not checkExists(self.group, self.filename):
                 raise Sound_Not_Exist_Error
 
-            # config.worker_queue.enqueue(update_quicksound, member, int(self.values[0]), self.argument)
+            config.worker_queue.enqueue(update_quicksound, member, int(self.values[0]), self.argument)
 
             await interaction.user.send(format_markdown(f"Quicksound {self.values[0]} updated to \"{self.argument}\"."))
 
