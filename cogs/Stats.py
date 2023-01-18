@@ -274,5 +274,5 @@ class Stats(commands.Cog, commands.Command):
             await ctx.reply(format_markdown("Something happen"))
             return
 
-def setup(bot):
-    bot.add_cog(Stats(bot))
+async def setup(bot):
+    await bot.add_cog(Stats(bot))

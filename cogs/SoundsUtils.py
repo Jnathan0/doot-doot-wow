@@ -3,14 +3,16 @@ import os
 import re
 from pathlib import Path
 from discord.ext import commands
+from discord import ui
 from modules import config, sounds, player
 from modules.helper_functions import *
 from modules.errors import *
 from modules.aliases import DisplayablePath
 from modules.metadata import update_metadata
+from modules.entrance import Entrance
+from modules.quicksounds import Quicksound
 
 # import for buttons and dropdown UI
-from discord_components import DiscordComponents, ComponentsBot, Button, Select, SelectOption
 
 
 # This cog allows users to query the sounds and folders that the bot has and returns messages 
@@ -151,7 +153,6 @@ class SoundsUtils(commands.Cog):
         Set a sound to a quicksound slot via UI prompt.
         Example Usage: `quicksounds set fart long`
         """
-        member = ctx.message.author.id
         input_sound = str(argument).split(' ')
         if len(input_sound) == 2:
             group = input_sound[0]
@@ -159,132 +160,62 @@ class SoundsUtils(commands.Cog):
         if len(input_sound) == 1:
             group = "root"
             filename = input_sound[0]
-
-        message = await ctx.send(
-            # What the fuck is this, javascript?
-            "Select quicksound slot to add sound to.",
-            components = [
-                Select(
-                    placeholder = "Select a quicksound slot.",
-                    options = [ 
-                        SelectOption(label = "1", value = 1),
-                        SelectOption(label = "2", value = 2),
-                        SelectOption(label = "3", value = 3)
-                    ]
-                )
-            ])
-        quicksound_slot = await self.bot.wait_for("select_option", timeout = 30.0)
-        await message.delete()
-        try:
-            # obj = Quicksound(ctx, command)
-            if not checkExists(group, filename):
-                raise Sound_Not_Exist_Error
-
-            config.worker_queue.enqueue(update_quicksound, member, int(quicksound_slot.values[0]), argument)
-
-            # config.worker_queue.enqueue(update_quicksound, member, obj.number, obj.sound)
-            await ctx.message.author.send(format_markdown(f"Quicksound {quicksound_slot.values[0]} updated to \"{argument}\"."))
-
-            # await ctx.message.author.send(format_markdown(f"Quicksound {obj.number} updated to \"{obj.sound}\"."))
-
-        except No_Argument_Error as e:
-            await ctx.message.author.send(format_markdown(e))
-            return
-
-        except Slot_Out_Of_Bounds_Error as e:
-            await ctx.message.author.send(format_markdown(e))
-            return
-
-        except Generic_Error as e:
-            await ctx.message.author.send(format_markdown(e))
-            return
         
-        except Sound_Not_Exist_Error as e:
-            await ctx.message.author.send(format_markdown(e))
-            return
+        view = ui.View()
+        view.add_item(Quicksound(group, filename, argument))
+        await ctx.send("Select quicksound slot", view=view)
 
-        except Error as e:
-            await ctx.message.author.send(format_markdown("Something happened, please notify the bot owner."))
-            return
-                
-
-    @commands.group()
+    @commands.command()
     @commands.guild_only()
     async def entrance(self, ctx):
         """
-        Plays a sound when you enter a voice channel to announce your entry. 
-        Will not play unless you have been out of voice for more than an hour since your last entry has played.
+        Help: \nset: set an intro sound for yourself\n     Usage: 'entrance set doc bullets\nremove: unset an entrance sound for yourself\n   usage: 'entrance remove\ninfo: tells you your set entrance sound\n    usage: 'entrance info
         """
-
-    @entrance.group()
-    @commands.guild_only()
-    async def set(self, ctx, *args):
-        """
-        Set a sound to play when you enter a voice channel.
-        Sound only plays if its been more than an hour since it last played. 
-        Example Usage: `entrance set fart long`
-        """
-        if len(args) == 1:
-            group = 'root'
-            filename = args[0]
-            sound_id = filename
-        if len(args) == 2:
-            group = args[0]
-            filename = args[1]
-            sound_id = f"{group} {filename}"
+        if len(ctx.message.content.split(config.prefix+"entrance")[1]) < 1:
+            await ctx.send(format_markdown("Help: \nset: set an intro sound for yourself\n     Usage: 'entrance set doc bullets\nremove: unset an entrance sound for yourself\n   usage: 'entrance remove\ninfo: tells you your set entrance sound\n    usage: 'entrance info"))
+            return
+        message = ctx.message.content
         try:
-            if not checkExists(group, filename):
-                raise Sound_Not_Exist_Error
-            member_id = ctx.message.author.id
+            obj = Entrance(ctx, message)
+
             db = GetDB(config.database_path)
-            db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(member_id,))
-            db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(?,?,?)", (sound_id, member_id, "NULL"))
-            db.commit()
-            await ctx.message.author.send(format_markdown(f"Set entry sound to: \"{sound_id}\" for User {ctx.message.author.name}"))
+
+            if obj.message_subcommand == 'set':
+                x = obj.get_entrance_alias()
+                db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(obj.member,))
+                db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(?,?,?)", (x, obj.member, "NULL"))
+
+                db.commit()
+                await ctx.message.author.send(format_markdown(f"Set entry sound to: \"{x}\" for User {ctx.message.author.name}"))
+            elif obj.message_subcommand == 'remove':
+                db.cursor.execute("DELETE FROM entrance WHERE user_id=?", (obj.member,))
+                db.commit()
+                await ctx.message.author.send(format_markdown("Removed entry sound."))
+            elif obj.message_subcommand == 'info':
+                db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (obj.member,))
+                data = db.cursor.fetchall()
+                if len(data) == 0:
+                    await ctx.message.author.send(format_markdown("You don't have an entry sound set."))
+                    return
+                else:
+                    await ctx.message.author.send(f"{ctx.author.mention} your entrance sound is \"{data[0][0]}\"")
+            else:
+                raise Arguement_Not_Exist_Error
             db.close()
+
+        
+        except Arguement_Not_Exist_Error as e:
+            await ctx.reply(format_markdown(e))
             return
 
-        except Sound_Not_Exist_Error as e:
-            await ctx.message.author.send(format_markdown(e))
-            return
-        except Error as e:
-            await ctx.message.author.send(format_markdown("Something happened, please notify the bot owner."))
+        except No_Argument_Error as e:
+            await ctx.reply(format_markdown(e))
             return
 
-    @entrance.group()
-    @commands.guild_only()
-    async def remove(self, ctx):
-        """
-        Remove the entry sound for the user. 
-        This will disable a sound playing when the user enters a voice chat. 
-        Example Usage: `entrance remove`
-        """
-        member_id = ctx.message.author.id
-        db = GetDB(config.database_path)
-        db.cursor.execute("DELETE FROM entrance WHERE user_id=?", (member_id,))
-        db.commit()
-        await ctx.message.author.send(format_markdown("Removed entry sound."))
-        db.close()
-        return
-
-    @entrance.group()
-    @commands.guild_only()
-    async def info(self, ctx):
-        """
-        DMs the user the entrance sound they have set.
-        Example Usage: `entrance info`
-        """
-        member_id = ctx.message.author.id
-        db = GetDB(config.database_path)
-        db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (member_id,))
-        data = db.cursor.fetchall()
-        if len(data) == 0:
-            await ctx.message.author.send(format_markdown("You don't have an entry sound set."))
+        except Multiple_Argument_Error as e:
+            await ctx.reply(format_markdown(e))
             return
-        else:
-            await ctx.message.author.send(f"> {ctx.author.mention} your entrance sound is \"{data[0][0]}\"")
-        db.close()
         
 
-def setup(bot):
-    bot.add_cog(SoundsUtils(bot))
+async def setup(bot):
+    await bot.add_cog(SoundsUtils(bot))
