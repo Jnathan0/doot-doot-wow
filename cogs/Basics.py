@@ -5,7 +5,6 @@ from modules import config
 from modules.helper_functions import format_markdown, restart_bot
 
 
-# declaring Cog
 class Basics(commands.Cog):
 
     def __init__(self, bot):
@@ -13,7 +12,9 @@ class Basics(commands.Cog):
 
     @app_commands.command(name="ping")
     async def ping(self, interaction: discord.Interaction) -> None:
-        """Shows the Gateway Ping."""
+        """
+        Shows the Gateway Ping.
+        """
         await interaction.channel.typing()
         await interaction.response.send_message(f"> **PONG**\n:hourglass: gateway ping: {round(self.bot.latency * 1000)}ms :hourglass:")
 
@@ -38,7 +39,7 @@ class Basics(commands.Cog):
     @app_commands.checks.has_role(config.owb_id) #decorator to see if whoever requested the command has the role specified, takes roleid argument in int or string form. 
     async def restart(self, ctx):
         """
-        Restarts the bot
+        Restarts the bot.
         """
         try:
             file = discord.File(str(config.gifs_path+"illbeback.gif"))
