@@ -1,7 +1,8 @@
 import discord
-from modules.command_help import *
-from modules import config
+from typing import Optional
+from discord import app_commands
 from discord.ext import commands
+from modules.command_help import *
 
 class Help(commands.Cog):
     def __init__(self: object, bot: object):
@@ -19,7 +20,7 @@ class Help(commands.Cog):
 
     def get_helpdoc(self):
         embed = discord.Embed(title="Help: Commands and subcommands",
-                                description=f"To get more detail on a command and its usage, use `{config.prefix}help <command>`\n(ex. `{config.prefix}help quicksounds`)",
+                                description=f"To get more detail on a command and its usage, use `/help <command>`\n(ex. `/help quicksounds`)",
                                 color=discord.Color.green())
         for command in self.global_commands.values():
             if command.hidden:
@@ -33,20 +34,22 @@ class Help(commands.Cog):
                 embed.add_field(name=command, value=command.name, inline=True)
         return embed
 
-    @commands.command(aliases=['h'])
-    async def help(self, ctx, *args):
+
+    @app_commands.command(name="help")
+    @app_commands.describe(command='The command to get help with')
+    async def help(self, interaction: discord.Interaction, command: Optional[str] = None):
         """
         Displays this message.
         Use a specific command in addition to help to view help for that command.
         e.x `help stats`
         """
-        if not args:
-            await ctx.send(embed=self.global_helpdoc)
+        if not command:
+            await interaction.response.send_message(embed=self.global_helpdoc)
             return
-        if args[0] in self.global_commands.keys():
-            command = self.global_commands[args[0]]
-            await ctx.send(embed=get_command_help(command))
-            
+        if command in self.global_commands.keys():
+            command = self.global_commands[command]
+            await interaction.response.send_message(embed=get_command_help(command))
+            return
 
 async def setup(bot):
     await bot.add_cog(Help(bot))
