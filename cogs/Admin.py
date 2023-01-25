@@ -1,10 +1,10 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 from modules import config
 from modules.helper_functions import format_markdown
 
 # imports for admin stats function
-import psutil
 from time import time
 from platform import python_version
 from datetime import datetime, timedelta
@@ -14,66 +14,54 @@ from psutil import Process, virtual_memory
 
 # imports for updating bot profile pic
 import tempfile
-import requests
 
 class Admin(commands.Cog):
     """
     Cog contains admin functions only useable by the discord owner or users with the owner permission
     """
-
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.group()
-    @commands.guild_only()
-    @commands.is_owner()
-    async def admin(self, ctx):
-        """
-        Top level command to invoke subcommands for admins.
-        Must be bot owner to run.
-        """
-        if ctx.invoked_subcommand is None:
-            await ctx.send(format_markdown("Invalid Admin command invoked"))
+    group = app_commands.Group(
+        name="admin",
+        description="Example usage: /admin"
+    )
 
-    @commands.guild_only()
+    @group.command(name="shutdown")
     @commands.is_owner()
-    @admin.group()
-    async def shutdown(self, ctx):
+    async def admin_shutdown_command(self, interaction: discord.Interaction) -> None:
         """
         Shuts the bot down and kills the process.
         Requires owner permissions.
         """
         try:
             file = discord.File(str(config.gifs_path+"peaceout.gif"))
-            await ctx.send(content="> you're such a turnoff", file=file)
+            await interaction.response.send_message(content="> you're such a turnoff", file=file)
         except FileNotFoundError:
-            await ctx.send("> shutting down bot..")
+            await interaction.response.send_message("> shutting down bot..")
         await self.bot.close()
 
-    @commands.guild_only()
+    @group.command(name="presence")
     @commands.is_owner()
-    @admin.group()
-    async def setpresence(self, ctx, *, content):
+    async def admin_setpresence_command(self, interaction: discord.Interaction, content: str) -> None:
         """
         Set a presence message that shows up in the mini profile for the bot in discord
         """
         if len(content) > 0:
             await self.bot.change_presence(activity=discord.Game(name=content))
-            await ctx.send(f"Presence changed to:\n{format_markdown(content)}", delete_after=10)
+            await interaction.response.send_message(f"Presence changed to:\n{format_markdown(content)}", delete_after=10)
         else:
-            await ctx.send(format_markdown("Presence cannot be empty string."), delete_after=10)
+            await interaction.response.send_message(format_markdown("Presence cannot be empty string."), delete_after=10)
 
-    @commands.guild_only()
+    @group.command(name="stats")
     @commands.is_owner()
-    @admin.group()
-    async def stats(self, ctx):
+    async def admin_stats_command(self, interaction: discord.Interaction):
         """
         Displays runtime stats of the application in markdown embed.
         Sourced from: https://github.com/Carberra/updated-discord.py-tutorial/blob/085113e9bff69a699a25ed1cd91db5744b8755ea/lib/cogs/meta.py#L54-L82
         """
-        print(self.bot.user.avatar)
         embed = Embed(title="Bot Stats",
-                color = ctx.author.color,
+                color = discord.Color.blurple(),
                 timestamp = datetime.utcnow())
 
         proc = Process()
@@ -95,26 +83,27 @@ class Admin(commands.Cog):
         for name, value, inline in fields:
             embed.add_field(name=name, value=value, inline=inline)
 
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
 
-    @commands.guild_only()
+    @group.command(name="avatar")
+    @app_commands.default_permissions(attach_files=True)
     @commands.is_owner()
-    @admin.group()
-    async def avatar(self, ctx):
+    async def admin_stats_command(self, interaction: discord.Interaction, attachment: discord.Attachment):
         """
         Looks at the first message attachment and uploads the media as the bots new discord avatar
         """
-        media = ctx.message.attachments[0]
-        download = requests.get(media.url)
-        temp_dir = tempfile.TemporaryDirectory(dir="/var/tmp/")
-        open(f"{temp_dir.name+'/'+media.filename}", 'wb').write(download.content)
-        avatar = open(f"{temp_dir.name+'/'+media.filename}", 'rb')
-        await self.bot.user.edit(avatar=avatar.read())
-        temp_dir.cleanup()
-        await ctx.message.author.send(format_markdown(f"Bot avatar image changed to {media.filename}"))
-        await ctx.message.delete()
-
+        try:
+            file_bytes = await attachment.read(use_cached=True)
+            temp_dir = tempfile.TemporaryDirectory(dir="/var/tmp/")
+            open(f"{temp_dir.name+'/'+attachment.filename}", 'wb').write(file_bytes)
+            avatar = open(f"{temp_dir.name+'/'+attachment.filename}", 'rb')
+            await self.bot.user.edit(avatar=avatar.read())
+            temp_dir.cleanup()
+            await interaction.response.send_message(format_markdown(f"Bot avatar image changed to {attachment.filename}"), ephemeral=True)
+        except Exception as e:
+            print(e)
+            await interaction.response.send_message(format_markdown("Error: Something happened during avatar uploading process."))
 
 
 async def setup(bot):
