@@ -11,6 +11,19 @@ class ButtonMenu(View):
         self.user = user
         self.length = len(self.pages)-1
     
+    async def update(self, page: int):
+        self.current_page = page
+        if page == 0:
+            self.children[0].disabled = True
+            # case if there are only two pages so nav buttons dont get perma locked
+            if len(self.pages) == 2: self.children[1].disabled = False
+        elif page == self.length:
+            self.children[1].disabled = True
+            # case if there are only two pages so nav buttons dont get perma locked
+            if len(self.pages) == 2: self.children[0].disabled = False
+        else:
+            for i in self.children: i.disabled = False
+
     async def getPage(self, page):
         if isinstance(page, str):
             return page, [], []
@@ -30,6 +43,7 @@ class ButtonMenu(View):
             pass
 
     async def showPage(self, page: int, interaction: discord.Interaction):
+        await self.update(page)
         content, embeds, files = await self.getPage(self.pages[page])
         await interaction.response.edit_message(
             content = content,
