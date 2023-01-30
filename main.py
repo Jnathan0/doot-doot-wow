@@ -1,21 +1,11 @@
 # Setting up configuration
-import traceback
-import utils
 import os
-import asyncio
 import discord
-import datetime
-import time
-import aiohttp
-from modules import sounds, config
-from modules import RedisWorker
+
+from modules import config
 from modules.database import *
-from modules.player import player
 from datetime import datetime as dt
-from discord import app_commands
 from discord.ext import commands
-from discord.ext.commands import Bot
-from pathlib import Path
 from utils import Logger
 
 
@@ -56,8 +46,6 @@ class MyBot(commands.Bot):
 
 intents = discord.Intents.all()
 client = MyBot()
-
-client.redisworker = RedisWorker()
 
 @client.event
 async def on_guild_join(guild):

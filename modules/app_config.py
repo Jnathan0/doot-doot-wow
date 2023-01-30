@@ -52,7 +52,7 @@ __extensions__ = [
     'Media',
     'Entrance',
     'Player',
-    'Modtools'
+    'ModTools'
 ]
 
 class AppConfig():
