@@ -37,21 +37,21 @@ class Basics(commands.Cog):
     @app_commands.command(name="restart")
     @app_commands.guild_only()
     @app_commands.checks.has_role(config.owb_id) #decorator to see if whoever requested the command has the role specified, takes roleid argument in int or string form. 
-    async def restart(self, ctx):
+    async def restart(self, interaction: discord.Interaction) -> None:
         """
         Restarts the bot.
         """
         try:
             file = discord.File(str(config.gifs_path+"illbeback.gif"))
-            await ctx.send(file=file)
+            await interaction.response.send_message(file=file)
         except FileNotFoundError:
-            await ctx.send(format_markdown("Restarting Bot..."))
+            await interaction.response.send_message(format_markdown("Restarting Bot..."))
         restart_bot()
     
     @restart.error#error handaling for the restart function
-    async def restart_error(self,ctx,error):
+    async def restart_error(self,interaction, error):
         if isinstance(error, discord.app_commands.MissingRole):#if @app_commands.checks.has_role() returns with MissingRole error, send message
-            await ctx.send(format_markdown("Cannot restart, \'owb\' role required"))
+            await interaction.response.send_message(format_markdown("Cannot restart, \'owb\' role required"))
 
 async def setup(bot):
    await bot.add_cog(Basics(bot))
