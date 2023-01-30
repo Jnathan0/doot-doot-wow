@@ -12,13 +12,12 @@ from modules import RedisWorker
 from modules.database import *
 from modules.player import player
 from datetime import datetime as dt
+from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Bot
 from pathlib import Path
 from utils import Logger
 
-# Button UI/UX import
-# from discord_components import DiscordComponents
 
 pid = os.getpid()
 with open('pid.txt','w') as f:
@@ -39,7 +38,9 @@ class MyBot(commands.Bot):
     async def setup_hook(self):
         for ext in self.initial_extensions:
             await self.load_extension("cogs." + ext)
-
+        self.tree.copy_global_to(guild=discord.Object(id=config.guild_id))
+        await self.tree.sync(guild=discord.Object(id=config.guild_id))
+        
     async def close(self):
         await super().close()
 
@@ -56,7 +57,7 @@ class MyBot(commands.Bot):
 intents = discord.Intents.all()
 client = MyBot()
 
-# client.redisworker = RedisWorker()
+client.redisworker = RedisWorker()
 
 @client.event
 async def on_guild_join(guild):

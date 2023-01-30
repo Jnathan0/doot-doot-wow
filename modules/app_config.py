@@ -19,7 +19,6 @@ required = [
             'sub_cmd_sep', 
             'reverse_char',
             'database_folder_path',
-            'media_path',
             'owb_id',
             'image_size_limit'
             ]
@@ -40,6 +39,7 @@ defaults_map = {
     "log_channel": None,
     "reverse_char": "-",
     "image_size_limit": 800000,
+    "guild_id": 0,
 }
 
 # List of cogs to load into the bot
@@ -47,12 +47,12 @@ __extensions__ = [
     'Admin',
     'Basics',
     'Help',
-    'Player',
-    'SoundsUtils',
     'Stats',
+    'SoundsUtils',
     'Media',
     'Entrance',
-    'ModTools'
+    'Player',
+    'Modtools'
 ]
 
 class AppConfig():
@@ -138,10 +138,12 @@ class AppConfig():
             return value
 
         except Config_Key_Not_Exist_Error as e:
+            print("Config key error")
             print(f"{e}")
             sys.exit(1)
 
         except Error as e:
+            print("generic error")
             print(f"{e}")
             sys.exit(1)
 
@@ -157,6 +159,7 @@ class AppConfig():
                 if not os.path.isdir(value):
                     raise Directory_Not_Found_Error(message=f"Error: Required directory not found \"{key}\", please make sure this directory exists and is a valid config value.")
             except Directory_Not_Found_Error as e:
+                print(e)
                 sys.exit(1)
 
     def _validate_metadata_db_path(self):
