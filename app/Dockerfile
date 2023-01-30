@@ -1,7 +1,6 @@
 FROM python:3.8.12-bullseye
 
 RUN apt update
-RUN apt install redis-server -y
 RUN apt install sqlite3 -y
 RUN apt install ffmpeg -y
 RUN apt install net-tools -y

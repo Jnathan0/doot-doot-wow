@@ -16,3 +16,4 @@ from .imgprocessing import *
 from .command_help import *
 from .menus import *
 from .media import *
+from .redisworkers import RedisWorker
