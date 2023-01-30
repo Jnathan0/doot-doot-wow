@@ -7,38 +7,33 @@ from modules.database import GetDB
 from modules.errors import Image_Too_Large_Error
 
 class ImageAttachment():
-    def __init__(self, ctx, sound_id):
-        self.ctx = ctx
-        self.author_id = ctx.message.author.id
-        self.attachment = self._get_image_attachment()
-        self.filename = self.attachment.filename
+    def __init__(self, attachment: discord.Attachment, sound_id: str):
+        self.attachment = attachment
         self.sound_id = sound_id
         self.filetype = self._get_image_filetype()
+        self.base_path_map = {
+            "gifs": config.gifs_path,
+            "images": config.images_path
+        }
 
     def _get_image_filetype(self):
-        if self.ctx.message.attachments[0].content_type.split('/')[1] == 'gif':
+        if self.attachment.content_type.split('/')[1] == 'gif':
             return "gifs"
         return "images"
 
-    def _get_image_attachment(self):
-        if len(self.ctx.message.attachments) != 1:
-            print("too many image attachments")
-            # Implement custom error here
-            return
-        return self.ctx.message.attachments[0]
 
-    def download_file(self):
+    def download_file(self, file_bytes):
 
         if self.attachment.size > config.image_size_limit:
             raise Image_Too_Large_Error
-        file = requests.get(self.attachment.url)
-        media_path = str(config.media_path+'/'+self.filetype+'/')
+
+        media_path = str(f"{self.base_path_map[self.filetype]}/")
 
         # make a datetime.now() result into an int and append it to the filename 
         # to make the filename unique
-        unique_filename = f'{int(datetime.now().strftime("%Y%m%d%H%M%S"))}{self.filename}'
+        unique_filename = f'{int(datetime.now().strftime("%Y%m%d%H%M%S"))}{self.attachment.filename}'
         save_path = os.path.join(media_path, unique_filename)
-        open(save_path, 'wb').write(file.content)
+        open(save_path, 'wb').write(file_bytes)
 
         db = GetDB(config.database_path)
         db.cursor.execute(f"DELETE FROM images WHERE sound_id=\"{self.sound_id}\"")
@@ -57,9 +52,11 @@ class ImageAttachment():
             if image_data:
                 folder = image_data[0]
                 image_name = image_data[1]
-                os.remove(f"{config.media_path}/{folder}/{image_name}")
+                os.remove(f"{self.base_path_map[folder]}/{image_name}")
                 return
             else:
                 return
         except IndexError as e:
             return
+        except FileNotFoundError as e:
+            pass
