@@ -1,5 +1,6 @@
 {
   "token": "token goes here",
+  "guild_id": "discord guild id goes here",
   "log_channel": 42069,
   "prefix": "'",
   "reverse_char": "-",

@@ -5,22 +5,32 @@ and handles the insertion of database entries for the attributes of the media.
 import asyncio
 import requests
 import os
+import discord
+from typing import Optional
 from datetime import date
 from modules import config, sounds, Sound
 from modules.errors import *
 from modules.helper_functions import *
 from modules.database import *
 from modules.imgprocessing import ImageAttachment
+from modules.media import ImageAddModal, SoundConfirmationDiag
 from discord.ext import commands
+from discord import app_commands
 
 class Media(commands.Cog, commands.Command):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    @commands.guild_only()
-    @commands.has_role(config.owb_id)#decorator to see if whoever requested the command has the role specified, takes roleid argument in int or string form. 
-    async def add(self, ctx):
+    # @commands.command()
+    # @commands.guild_only()
+    # @commands.has_role(config.owb_id)#decorator to see if whoever requested the command has the role specified, takes roleid argument in int or string form. 
+    # async def add(self, ctx):
+    
+    @app_commands.command(name='add')
+    @app_commands.default_permissions(attach_files=True)
+    @app_commands.checks.has_role(config.owb_id)
+    @app_commands.describe(folder='(Optional) folder to add sound to.', )
+    async def add_command(self, interaction: discord.Interaction, attachment: discord.Attachment, folder: Optional[str]):
         """
         Upload a sound file and add it to the bots sound library.
         \nCommand will be filename w/o file extension (ex. `airhorn.mp3` will become `airhorn`).
@@ -29,39 +39,39 @@ class Media(commands.Cog, commands.Command):
         \nA sound can be added to a folder, which can contain multiple sounds.
         \n> Example Usage (adding a sound to a folder):\n `add foldername soundname`
         """
-        command = ctx.message.content.split(config.prefix)[1]
-
-        print(ctx.message.attachments[0].content_type.split('/')[0])
-        print(ctx.message.attachments[0].content_type.split('/'))
-        if ctx.message.attachments[0].content_type.split('/')[0] == "image":
+        if attachment.content_type.split('/')[0] == 'image':
+            image_add_modal = ImageAddModal()
+            await interaction.response.send_modal(image_add_modal)
+            await image_add_modal.wait()
+            sound = str(image_add_modal.sound)
             try:
-                sound_id = command.split("add ")[1]
-                if sound_id not in sounds.alias_dict:
-                    await ctx.message.author.send(format_markdown(f"The sound '{sound_id}' does not exist, so you cannot add an image for it."))
-                    await ctx.message.delete()
-                image = ImageAttachment(ctx, sound_id)
-                # image.delete_existing_image_file()
-                image.download_file()
-                await ctx.message.author.send(format_markdown(f"Added image {image.filename} to sound {command.split('add ')[1]}"))
-                await ctx.message.delete()
+                if sound not in sounds.alias_dict:
+                    return await image_add_modal.interaction.followup.send(format_markdown(f"The sound '{sound}' does not exist, so you cannot add an image for it."))
+                image = ImageAttachment(attachment, sound)
+                file_bytes = await attachment.read()
+                image.delete_existing_image_file()
+                image.download_file(file_bytes)
 
                 sounds.update_sounds()
-                self.bot.reload_extension(f"cogs.Player")
-                return
+                await self.bot.reload_extension(f"cogs.Player")
+                return await image_add_modal.interaction.followup.send(f"Image uploaded for sound \"{sound}\"")
+            
             except Image_Too_Large_Error as e:
+                # bitwise shift left to get MB 
+                # see https://docs.python.org/3.3/reference/expressions.html?highlight=bitwise#shifting-operations
+                return await image_add_modal.interaction.followup.send(format_markdown(f"Error: Image size cannot exceed {int(config.image_size_limit/(1<<20))} MB. "), ephemeral=True)
+            
+            except Exception as e:
                 print(e)
-                return
-        print("i am here")
+                return await image_add_modal.interaction.followup.send(format_markdown("An error occoured while processing this command. If this persists please contact and admin."), ephemeral=True)
 
         #TODO: The code below should be refactored into its own module 
         new_dir = False
-        uid = ctx.message.author.id
-        attachment = ctx.message.attachments[0]
-        url = attachment.url
-        downloaded_file = requests.get(url)
+        uid = interaction.user.id
+        downloaded_file = await attachment.read(use_cached=True)
         filename = attachment.filename
-        if len(command.split(config.sub_cmd_sep)) == 2:
-            group = command.split(config.sub_cmd_sep)[1]
+        if folder:
+            group = folder
         else:
             group = ''
         mygroup = group
@@ -75,11 +85,11 @@ class Media(commands.Cog, commands.Command):
         if mygroup == "root":
             for command in self.bot.commands:
                 if str.lower(sound_name) == str.lower(command.name):
-                    await ctx.send(format_markdown(f"The sound name \'{sound_name}\' is a reserved command, please change the sound name and retry."))
+                    await interaction.response.send_message(format_markdown(f"The sound name \'{sound_name}\' is a reserved command, please change the sound name and retry."))
                     return
 
         if checkExists(mygroup, sound_name):
-            await ctx.send(format_markdown(f"Sound name \"{sound_name}\" already exists for this folder. Please try naming it something else."))
+            await interaction.response.send_message(format_markdown(f"Sound name \"{sound_name}\" already exists for this folder. Please try naming it something else."))
             return             
 
         save_dir = os.path.join(config.sounds_path, group)
@@ -89,34 +99,21 @@ class Media(commands.Cog, commands.Command):
             new_dir = True
             os.makedirs(save_dir)
 
-        open(save_path, 'wb').write(downloaded_file.content)
+        open(save_path, 'wb').write(downloaded_file)
         if isLoud(save_path):
             os.remove(save_path)
-            await ctx.send(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
+            await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
             return
 
         confirmation_msg = ''
 
         if new_dir:
-            confirmation_msg = f"{ctx.author.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nThis will create a new folder with the name: ```{mygroup}```\nReact with ✅ to confirm. React with ❌ to cancel"
-        confirmation_msg = f"{ctx.author.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nTo the folder: ```{mygroup}```\nReact with ✅ to confirm. React with ❌ to cancel"
-
-        msg = await ctx.send(confirmation_msg)
-        await msg.add_reaction('✅')
-        await msg.add_reaction('❌')
-        
-        def check(reaction, user):
-            return user == ctx.author and str(reaction.emoji) in ['✅','❌']
-
-        try:
-            reaction, user = await self.bot.wait_for('reaction_add', timeout = 60.0, check=check)
-        except asyncio.TimeoutError:
-            await ctx.send(format_markdown("You have waited too long to react, sound upload aborted."))
-            os.remove(save_path)
-            return
-        
-        if str(reaction) == '✅':
-            await msg.delete()
+            confirmation_msg = f"{interaction.user.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nThis will create a new folder with the name: ```{mygroup}```"
+        confirmation_msg = f"{interaction.user.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nTo the folder: ```{mygroup}```"
+        confirmation_view = SoundConfirmationDiag()
+        await interaction.response.send_message(content=confirmation_msg, view=confirmation_view)
+        await confirmation_view.wait()
+        if confirmation_view.confirmed:
             mydate = date.today().strftime("%Y-%m-%d")
             db = GetDB(config.database_path)
             db.cursor.execute("INSERT OR IGNORE INTO categories (category_id) VALUES (\""+mygroup+"\")")
@@ -136,30 +133,14 @@ class Media(commands.Cog, commands.Command):
                 sounds.update_sounds()
             except Exception as e:
                 print(e)
-        
-            await ctx.send(format_markdown(f'added {filename}, updating list'))
+            await confirmation_view.interaction.response.edit_message(content=format_markdown(f'added {filename}, updating list'), view=None)
             self.bot.reload_extension(f"cogs.Player")
-        if str(reaction) == '❌':
-            os.remove(save_path)
-            await ctx.message.author.send(format_markdown("Process cancelled"))
-            await msg.delete()
-            await ctx.message.delete()
             return
-   
+        if not confirmation_view.confirmed:
+            os.remove(save_path)
+            await confirmation_view.interaction.response.edit_message(content=format_markdown("Process cancelled"), view=None)
+            return
 
-
-
-
-
-    
-    @add.error #error handaling for the add function
-    async def upload_error(self,ctx,error):
-        if isinstance(error, commands.MissingRole):#if .has_role returns with MissingRole error, send message
-            await ctx.send(format_markdown("Cannot add, \'owb\' role required"))
-        if isinstance(error, Image_Too_Large_Error):
-            await ctx.send(error)
-        if isinstance(error, Error):
-            await ctx.send(error)
 
 async def setup(bot):
     await bot.add_cog(Media(bot))

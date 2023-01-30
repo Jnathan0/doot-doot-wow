@@ -1,66 +1,84 @@
 import discord
 import os
 import re
+from typing import List
+from typing import Optional
 from pathlib import Path
 from discord.ext import commands
 from discord import ui
+from discord import app_commands
 from modules import config, sounds, player
+from modules.menus import ButtonMenu
 from modules.helper_functions import *
 from modules.errors import *
 from modules.aliases import DisplayablePath
 from modules.metadata import update_metadata
-from modules.entrance import Entrance
 from modules.quicksounds import Quicksound
-
-# import for buttons and dropdown UI
-
 
 # This cog allows users to query the sounds and folders that the bot has and returns messages 
 # based on the function they call
 
 class SoundsUtils(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @commands.command()
-    @commands.guild_only()
-    async def sounds(self, ctx):
+    entrance_group = app_commands.Group(
+        name="entrance",
+        description="Example Usage: `/entrance`"
+    )
+
+    quicksounds_group = app_commands.Group(
+        name="quicksounds",
+        description="Example Usage: /quicksounds"
+    )
+
+
+    @app_commands.command(name="sounds")
+    @app_commands.describe(user="@username")
+    async def sounds_command(self, interaction: discord.Interaction, user: Optional[str]) -> None:
         """
-        View a list of categories and their sounds
-        Will DM you a output of sounds, folders, and the sounds in the folders.
-        Example Usage: `sounds`
+        View a list of folders and their sounds
         """
-        member = ctx.message.author
-        if ctx.message.mentions:
+        await interaction.response.defer(thinking=True)
+        if user:
+            matches = re.findall(r"<@!?([0-9]{15,20})>", user) # returns list of strings
+            if not matches:
+                await interaction.followup.send(format_markdown("No user mention was found, please mention a user for this option (e.x @Owen Wilson Bot)"), ephemeral=True)
+                return
+            if len(matches) != 1:
+                await interaction.follwup.send(format_markdown(f"Error: too many user mentions, please only mention one user for this command"), ephemeral=True)
+                return
+            member = interaction.guild.get_member(int(matches[0]))
             try:
-                user = ctx.message.mentions[0].id
-                username = await self.bot.fetch_user(user)
-                await member.send(f"-------------- SOUNDS FOR {username} --------------")
+                user = member.id
                 db = GetDB(config.database_path)
-                db.cursor.execute("SELECT sound_id FROM sounds WHERE author_id=? ORDER BY sound_id ASC", [user])
+                db.cursor.execute(f"SELECT sound_id FROM sounds WHERE author_id={user} ORDER BY sound_id ASC")
                 info = db.cursor.fetchall()
                 db.close()
-                message = ""
+                pages = []
+                message = f"----------- SOUNDS FOR {member.name} -----------\n"
                 for item in info:
                     line = f"{item[0]}\n"
                     if (len(message)+len(line)) > 1994:
-                        await member.send(format_markdown(message))
-                        message =""
+                        pages.append(format_markdown(message))
+                        message = line
                     else:
                         message += line
-                await member.send(format_markdown(message))
-                await member.send("--------------------------------------------------")
-
-            
+                pages.append(format_markdown(message))
+                await interaction.user.send(content=pages[0], view=ButtonMenu(pages, 600))
+                
             except Exception as e:
-                await ctx.reply(format_markdown("ERROR: Something broke for this command, maybe it will get fixed."))
+                print(e)
+                await interaction.followup.send(format_markdown("ERROR: Something broke for this command, maybe it will get fixed."), ephemeral=True)
                 return
+
         else:
             paths = DisplayablePath.make_tree(Path(config.sounds_path))
-            msg_limit = 2000
+            msg_limit = 1988
             size = 0
             message = []
-            msg = "```"
+            pages = []
+            msg = ""
             for path in paths:
                 message.append(path.displayable())
             for i in range(0, len(message)):
@@ -69,39 +87,51 @@ class SoundsUtils(commands.Cog):
                     msg+=('\n'+block)
                     size += len(block)+4
                     if i == len(message)-1:
-                        msg+="""```"""
-                        await member.send(msg)
+                        pages.append(format_markdown(msg))
                 elif size+len(block) > msg_limit:
-                    msg+="""```"""
-                    await member.send(msg)
-                    msg="```"
+                    pages.append(format_markdown(msg))
+                    msg=""
                     size=0
+            await interaction.user.send(content=pages[0], view=ButtonMenu(pages, 600))
+
+        await interaction.delete_original_response()
 
 
-    @commands.command()
-    @commands.guild_only()
-    async def folders(self, ctx):
+    @app_commands.command(name="folders")
+    @app_commands.describe(folder="(optional) folder to view sounds in")
+    async def folders_command(self, interaction: discord.Interaction, folder: Optional[str]) -> None:
         """
-        View the different sound categories or 
-        view all the sounds in a specific category by specifying the category
-        Example usage: `folders borat`
+        View all folders or specific sounds in a folder.
         """
-        command = ctx.message.content.split(config.prefix)[1]
         message = ""
-        if len(command.split()) > 1:
-            path = os.listdir(config.sounds_path+'/'+command.split()[1])
-            message += "📁 There are "+str(len(path))+" sounds in the "+command.split()[1]+" folder:\n\n"
-            for item in list(path):
-                message+=os.path.splitext(item)[0]+'\n'
-            await ctx.send(format_markdown(message))
-            return
-        
-        await ctx.reply("current categories:")
-        for item in sounds.category_list:
-            message += "📁" + item + '\n'
-        await ctx.send(format_markdown(message))
+        if folder:
+            try:
+                path = os.listdir(config.sounds_path+'/'+folder)
+                message += "📁 There are "+str(len(path))+" sounds in the "+folder+" folder:\n\n"
+                for item in list(path):
+                    message+=os.path.splitext(item)[0]+'\n'
+                await interaction.response.send_message(format_markdown(message))
+                return
+            except FileNotFoundError as e:
+                await interaction.response.send_message(format_markdown(f"Error: folder \"{folder}\" not found."))
+                return
+        else:
+            try:
+                for item in sorted(sounds.category_list):
+                    message += "📁" + item + '\n'
+                await interaction.response.send_message(format_markdown(message))
+                return
+            except TypeError as e:
+                print(e)
+                await interaction.response.send_message(format_markdown(f"No folders found."))
+                return
+    ### discord only allows 25 or less options for slash commands so imma leave this commented out
+    # @folders_command.autocomplete('folder')
+    # async def folders_autocomplete(self, interaction: discord.Interaction, current: str,) -> List[app_commands.Choice[str]]:
+    #     folders = sounds.category_list
+    #     return [app_commands.Choice(name=folder, value=folder) for folder in folders if current.lower() in folder.lower()]
 
-    @commands.group(aliases=['1', '2', '3'])
+    @commands.command(aliases=['1', '2', '3'], hidden=True)
     @commands.guild_only()
     async def quicksounds(self, ctx):
         """
@@ -124,36 +154,17 @@ class SoundsUtils(commands.Cog):
                 await ctx.message.author.send(format_markdown(f"You dont have a sound set for slot {command}."))
                 return
             else:
-
                 await player.play(ctx, sounds.alias_dict[sound])
                 config.sounds_queue.enqueue(increment_playcount, sound)
                 config.worker_queue.enqueue(update_metadata, member, sound, call_type = "direct")
 
-    @quicksounds.group()
-    @commands.guild_only()
-    async def info(self, ctx):
-        """
-        Get info on the current quicksounds set for the user
-        Example Usage: `quicksounds info`
-        """
-        member = ctx.message.author.id
-        db = GetDB(config.database_path)
-        db.cursor.execute(f"SELECT alias,sound_id FROM QUICKSOUNDS WHERE user_id={member} ORDER BY alias")
-        data = db.cursor.fetchall()
-        embedvar = discord.Embed(title=f"{ctx.message.author.name}'s Quicksounds", color=0x00ff00)
-        for item in data:
-            embedvar.add_field(name=f"Slot {item[0]}", value=f"{item[1]}")
-        await ctx.message.author.send(embed=embedvar)
-        db.close()
-
-    @quicksounds.group()
-    @commands.guild_only()
-    async def set(self ,ctx, *, argument):
+    @quicksounds_group.command(name="set")
+    @app_commands.describe(sound="sound name to set to a quicksound slot")
+    async def quicksounds_set_command(self, interaction: discord.Interaction, sound: str) -> None:
         """
         Set a sound to a quicksound slot via UI prompt.
-        Example Usage: `quicksounds set fart long`
         """
-        input_sound = str(argument).split(' ')
+        input_sound = sound.split(' ')
         if len(input_sound) == 2:
             group = input_sound[0]
             filename = input_sound[1]
@@ -162,59 +173,77 @@ class SoundsUtils(commands.Cog):
             filename = input_sound[0]
         
         view = ui.View()
-        view.add_item(Quicksound(group, filename, argument))
-        await ctx.send("Select quicksound slot", view=view)
+        view.add_item(Quicksound(group, filename, sound))
+        await interaction.response.send_message("Select quicksound slot", view=view, ephemeral=True)
 
-    @commands.command()
-    @commands.guild_only()
-    async def entrance(self, ctx):
+    @quicksounds_group.command(name="info")
+    async def quicksounds_info_command(self, interaction: discord.Interaction) -> None:
+        """
+        Get info on the current quicksounds set for yourself
+        """
+        db = GetDB(config.database_path)
+        db.cursor.execute(f"SELECT alias,sound_id FROM QUICKSOUNDS WHERE user_id={interaction.user.id} ORDER BY alias")
+        data = db.cursor.fetchall()
+        embedvar = discord.Embed(title=f"{interaction.user.name}'s Quicksounds", color=0x00ff00)
+        for item in data:
+            embedvar.add_field(name=f"Slot {item[0]}", value=f"{item[1]}")
+        await interaction.response.send_message(embed=embedvar, ephemeral=True)
+        db.close()
+
+
+    @entrance_group.command(name="set")
+    async def entrance_set_command(self, interaction: discord.Interaction, sound: str) -> None:
         """
         Help: \nset: set an intro sound for yourself\n     Usage: 'entrance set doc bullets\nremove: unset an entrance sound for yourself\n   usage: 'entrance remove\ninfo: tells you your set entrance sound\n    usage: 'entrance info
         """
-        if len(ctx.message.content.split(config.prefix+"entrance")[1]) < 1:
-            await ctx.send(format_markdown("Help: \nset: set an intro sound for yourself\n     Usage: 'entrance set doc bullets\nremove: unset an entrance sound for yourself\n   usage: 'entrance remove\ninfo: tells you your set entrance sound\n    usage: 'entrance info"))
-            return
-        message = ctx.message.content
-        try:
-            obj = Entrance(ctx, message)
+        db = GetDB(config.database_path)
+        given_sound = sound.split(' ')
+        group = 'root'
+        sound_name = given_sound[0]
 
-            db = GetDB(config.database_path)
-
-            if obj.message_subcommand == 'set':
-                x = obj.get_entrance_alias()
-                db.cursor.execute("DELETE FROM entrance WHERE user_id=?",(obj.member,))
-                db.cursor.execute("INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(?,?,?)", (x, obj.member, "NULL"))
-
-                db.commit()
-                await ctx.message.author.send(format_markdown(f"Set entry sound to: \"{x}\" for User {ctx.message.author.name}"))
-            elif obj.message_subcommand == 'remove':
-                db.cursor.execute("DELETE FROM entrance WHERE user_id=?", (obj.member,))
-                db.commit()
-                await ctx.message.author.send(format_markdown("Removed entry sound."))
-            elif obj.message_subcommand == 'info':
-                db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (obj.member,))
-                data = db.cursor.fetchall()
-                if len(data) == 0:
-                    await ctx.message.author.send(format_markdown("You don't have an entry sound set."))
-                    return
-                else:
-                    await ctx.message.author.send(f"{ctx.author.mention} your entrance sound is \"{data[0][0]}\"")
-            else:
-                raise Arguement_Not_Exist_Error
-            db.close()
-
+        if len(given_sound) == 2:
+            group = given_sound[0]
+            sound_name = given_sound[1]
         
-        except Arguement_Not_Exist_Error as e:
-            await ctx.reply(format_markdown(e))
+        if not checkExists(group, sound_name):
+            interaction.response.send_message(format_markdown(f"Error: Cannot set entrance, sound {sound} does not exist."), ephemeral=True)
             return
+        try:
+            db = GetDB(config.database_path)
+            db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
+            db.cursor.execute(f"INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(\"{sound}\",{interaction.user.id},NULL)")
+            db.commit()
+            await interaction.response.send_message(format_markdown(f"Set entry sound to: \"{sound}\" for User {interaction.user.name}"), ephemeral=True)
+            db.close()
+        except Exception as e:
+            await interaction.response.send_message(format_markdown(f"Error: an error occoured attempting to set entry sound. Please contact an admin if this persists."))
+            print(e)
 
-        except No_Argument_Error as e:
-            await ctx.reply(format_markdown(e))
-            return
 
-        except Multiple_Argument_Error as e:
-            await ctx.reply(format_markdown(e))
+    @entrance_group.command(name="info")
+    async def entrance_info_command(self, interaction: discord.Interaction) -> None:
+        """
+        View currently set entrance sound for yourself.
+        """
+        db = GetDB(config.database_path)
+        db.cursor.execute(f"SELECT sound_id FROM entrance WHERE user_id={interaction.user.id}")
+        data = db.cursor.fetchall()
+        db.close()
+        if len(data) == 0:
+            await interaction.response.send_message(format_markdown("You don't have an entry sound set."), ephemeral=True)
             return
+        else:
+            await interaction.response.send_message(f"{interaction.user.name} your entrance sound is:\n{format_markdown(data[0][0])}", ephemeral=True)
+
+    @entrance_group.command(name="remove")
+    async def entrance_remove_command(self, interaction: discord.Interaction) -> None:
+        """
+        Removes your entrance sound.
+        """
+        db = GetDB(config.database_path)
+        db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
+        db.commit()
+        await interaction.response.send_message(format_markdown("Removed entry sound."), ephemeral=True)
         
 
 async def setup(bot):
