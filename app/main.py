@@ -2,6 +2,7 @@
 import os
 import discord
 
+from modules import RedisWorker
 from modules import config
 from modules.database import *
 from datetime import datetime as dt
@@ -46,6 +47,7 @@ class MyBot(commands.Bot):
 
 intents = discord.Intents.all()
 client = MyBot()
+client.redisworker = RedisWorker()
 
 @client.event
 async def on_guild_join(guild):

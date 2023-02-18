@@ -64,7 +64,6 @@ class Stats(commands.Cog):
         embedvar.add_field(name="Author", value=f"{username}", inline=True)
         embedvar.add_field(name="Date Created", value=f"{info[0][5]}", inline=False)
         embedvar.add_field(name="Parent Folder", value=f"{info[0][2]}", inline=True)
-        # message = info[0][1] + "\n\nDate Created: "+info[0][5]+"\nAuthor: "+username+"\nParent folder: "+info[0][2]+"\nPlays: "+str(info[0][4])
         await interaction.response.send_message(embed=embedvar)
         db.close()
         return
@@ -174,6 +173,7 @@ class Stats(commands.Cog):
             redis_metadata.close()
 
         except Exception as e:
+            print(e)
             await interaction.response.send_message(format_markdown("Something happen"))
             return
 
@@ -210,6 +210,7 @@ class Stats(commands.Cog):
             redis_metadata.close()
 
         except Exception as e:
+            print(e)
             await interaction.response.send_message(format_markdown("Something happen"))
             return
 
@@ -245,6 +246,7 @@ class Stats(commands.Cog):
             redis_metadata.close()
 
         except Exception as e:
+            print(e)
             await interaction.response.send_message(format_markdown("Something happen"))
             return
 
@@ -280,6 +282,7 @@ class Stats(commands.Cog):
             redis_metadata.close()
 
         except Exception as e:
+            print(e)
             await interaction.response.send_message(format_markdown("Something happen"))
             return
 

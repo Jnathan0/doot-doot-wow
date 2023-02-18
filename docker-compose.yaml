@@ -1,0 +1,45 @@
+version: '3'
+
+services:
+  bot:
+    container_name: owen-wilson-bot
+    network_mode: "host"
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - TOKEN=$TOKEN
+      - PREFIX=$PREFIX
+      - SUB_CMD_SEP=$SUB_CMD_SEP
+      - REDIS_PORT=$REDIS_PORT
+      - REDIS_CHARSET=$REDIS_CHARSET
+      - REDIS_ADDRESS=$REDIS_ADDRESS
+      - OWB_ID=$OWB_ID
+      - LOG_CHANNEL=$LOG_CHANNEL
+      - REVERSE_CHAR=$REVERSE_CHAR
+      - IMAGE_SIZE_LIMIT=$IMAGE_SIZE_LIMIT
+      - GUILD_ID=$GUILD_ID
+    volumes:
+      - "${SOUNDS_PARENT_DIRECTORY}:/sounds"
+      - "${IMAGES_PARENT_DIRECTORY}:/images"
+      - "${GIFS_PARENT_DIRECTORY}:/gifs"
+      - "${VIDEOS_PARENT_DIRECTORY}:/videos"
+      - "${DATABASE_PARENT_DIRECTORY}:/db"
+
+  redis:
+    container_name: redis-cache
+    network_mode: "host"
+    build:
+      context: ./redis
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - "REDIS_DUMP_FILE:${REDIS_DUMP_FILE}"
+      - "REDIS_RDB_DIR:${REDIS_RDB_DIR}"
+    ports:
+      - 6379:6379
+    volumes:
+      - "${REDIS_RDB_DIR}:/db"
+    depends_on:
+      - bot

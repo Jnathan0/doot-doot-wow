@@ -73,7 +73,7 @@ class Player:
                     "There was an issue with playing sound: File Not Found. Its possible that host of bot forgot to copy "
                     "over a file. If this error occured on official bot please use D.github to report issue.")
         try:
-            voice_channel.play(source, after=lambda: print("played doot"))
+            voice_channel.play(source)
             
         # catching most common errors that can occur while playing effects
         except discord.Forbidden:

@@ -49,5 +49,4 @@ class Quicksound(discord.ui.Select):
             await interaction.user.send(format_markdown("Something happened, please notify the bot owner."))
             return
 
-        await interaction.message.delete()
         return

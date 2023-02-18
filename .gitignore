@@ -263,3 +263,4 @@ pid.txt
 /include
 dump.rdb
 nohup.out
+*.env
