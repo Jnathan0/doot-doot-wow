@@ -47,7 +47,7 @@ class MyBot(commands.Bot):
 
 intents = discord.Intents.all()
 client = MyBot()
-client.redisworker = RedisWorker()
+# client.redisworker = RedisWorker()
 
 @client.event
 async def on_guild_join(guild):

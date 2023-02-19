@@ -26,6 +26,8 @@ services:
       - "${GIFS_PARENT_DIRECTORY}:/gifs"
       - "${VIDEOS_PARENT_DIRECTORY}:/videos"
       - "${DATABASE_PARENT_DIRECTORY}:/db"
+    depends_on:
+      - redis
 
   redis:
     container_name: redis-cache
@@ -41,5 +43,4 @@ services:
       - 6379:6379
     volumes:
       - "${REDIS_RDB_DIR}:/db"
-    depends_on:
-      - bot
+
