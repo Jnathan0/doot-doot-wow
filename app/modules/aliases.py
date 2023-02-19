@@ -6,10 +6,11 @@ from .app_config import config
 from .database import GetDB
 
 class Sound:
-    def __init__(self, sound_id = None, path = None,  media = None):
+    def __init__(self, sound_id = None, path = None,  media = None, media_parent_folder = None):
         self.sound_id = sound_id
         self.path = path
         self.media = media 
+        self.media_parent_folder = media_parent_folder
 
 class SoundsInfo:
     """
@@ -37,9 +38,12 @@ class SoundsInfo:
                     db = GetDB(config.database_path)
                     db.set_row_factory(lambda cursor, row: row[0:2])
                     media = db.cursor.execute(f"SELECT image_id, folder FROM images WHERE sound_id=\"{sound_id}\"").fetchone()
+                    media_parent_folder = None
+                    media_name = None
                     if media is not None:
-                        media = f"{media[1]}/{media[0]}"
-                    sound_object = Sound(sound_id = sound_id, path = path, media = media)
+                        media_name = f"{media[0]}"
+                        media_parent_folder = f"{media[1]}"
+                    sound_object = Sound(sound_id = sound_id, path = path, media = media_name, media_parent_folder = media_parent_folder)
                     alias_dict[sound_object.sound_id] = sound_object
                     db.close()
 
