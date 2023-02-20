@@ -59,7 +59,7 @@ def checkGroup(group):
     Returns Boolean
     """
     db = GetDB(config.database_path)
-    data = db.cursor.execute(f"SELECT EXISTS(SELECT sound_id FROM sounds WHERE sound_id=\"{group}\"").fetchall()
+    data = db.cursor.execute(f"SELECT EXISTS(SELECT category_id FROM categories WHERE category_id=\"{group}\")").fetchall()
     db.close()
     for item in data:
         if item[0] == 1:

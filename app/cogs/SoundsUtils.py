@@ -192,33 +192,53 @@ class SoundsUtils(commands.Cog):
 
 
     @entrance_group.command(name="set")
-    async def entrance_set_command(self, interaction: discord.Interaction, sound: str) -> None:
+    @app_commands.describe(sound="Full sound name to set as entry sound")
+    @app_commands.describe(folder="Folder name to randomly pull from for entry sound")
+    async def entrance_set_command(self, interaction: discord.Interaction, sound: Optional[str] = None, folder: Optional[str] = None) -> None:
         """
-        Help: \nset: set an intro sound for yourself\n     Usage: 'entrance set doc bullets\nremove: unset an entrance sound for yourself\n   usage: 'entrance remove\ninfo: tells you your set entrance sound\n    usage: 'entrance info
+        Set an entrance sound based on a full soundname or a random sound from a specified folder
         """
-        db = GetDB(config.database_path)
-        given_sound = sound.split(' ')
-        group = 'root'
-        sound_name = given_sound[0]
-
-        if len(given_sound) == 2:
-            group = given_sound[0]
-            sound_name = given_sound[1]
-        
-        if not checkExists(group, sound_name):
-            interaction.response.send_message(format_markdown(f"Error: Cannot set entrance, sound {sound} does not exist."), ephemeral=True)
+        if (sound and folder):
+            await interaction.response.send_message(format_markdown(f"Error cannot set SOUND and FOLDER, please choose one."), ephemeral=True)
             return
-        try:
+        if sound:
             db = GetDB(config.database_path)
-            db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
-            db.cursor.execute(f"INSERT INTO entrance(sound_id, user_id, last_seen) VALUES(\"{sound}\",{interaction.user.id},NULL)")
-            db.commit()
-            await interaction.response.send_message(format_markdown(f"Set entry sound to: \"{sound}\" for User {interaction.user.name}"), ephemeral=True)
-            db.close()
-        except Exception as e:
-            await interaction.response.send_message(format_markdown(f"Error: an error occoured attempting to set entry sound. Please contact an admin if this persists."))
-            print(e)
+            given_sound = sound.split(' ')
+            group = 'root'
+            sound_name = given_sound[0]
 
+            if len(given_sound) == 2:
+                group = given_sound[0]
+                sound_name = given_sound[1]
+
+            if not checkExists(group, sound_name):
+                interaction.response.send_message(format_markdown(f"Error: Cannot set entrance, sound {sound} does not exist."), ephemeral=True)
+                return
+            try:
+                db = GetDB(config.database_path)
+                db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
+                db.cursor.execute(f"INSERT INTO entrance(sound_id, user_id) VALUES(\"{sound}\",{interaction.user.id})")
+                db.commit()
+                await interaction.response.send_message(format_markdown(f"Set entry sound to: \"{sound}\" for User {interaction.user.name}"), ephemeral=True)
+                db.close()
+            except Exception as e:
+                await interaction.response.send_message(format_markdown(f"Error: an error occoured attempting to set entry sound. Please contact an admin if this persists."))
+                print(e)
+
+        if folder:
+            if not checkGroup(folder):
+                await interaction.response.send_message(format_markdown(f"Error: Cannot set entrance, folder {folder} does not exist."), ephemeral=True)
+                return
+            try:
+                db = GetDB(config.database_path)
+                db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
+                db.cursor.execute(f"INSERT INTO entrance(sound_id, user_id, content_type) VALUES(\"{folder}\",{interaction.user.id},\"folder\")")
+                db.commit()
+                await interaction.response.send_message(format_markdown(f"Set entry folder to: \"{folder}\" for User {interaction.user.name}"), ephemeral=True)
+                db.close()
+            except Exception as e:
+                await interaction.response.send_message(format_markdown(f"Error: an error occoured attempting to set entry sound. Please contact an admin if this persists."))
+                print(e)
 
     @entrance_group.command(name="info")
     async def entrance_info_command(self, interaction: discord.Interaction) -> None:
@@ -226,14 +246,14 @@ class SoundsUtils(commands.Cog):
         View currently set entrance sound for yourself.
         """
         db = GetDB(config.database_path)
-        db.cursor.execute(f"SELECT sound_id FROM entrance WHERE user_id={interaction.user.id}")
+        db.cursor.execute(f"SELECT sound_id, content_type FROM entrance WHERE user_id={interaction.user.id}")
         data = db.cursor.fetchall()
         db.close()
         if len(data) == 0:
             await interaction.response.send_message(format_markdown("You don't have an entry sound set."), ephemeral=True)
             return
         else:
-            await interaction.response.send_message(f"{interaction.user.name} your entrance sound is:\n{format_markdown(data[0][0])}", ephemeral=True)
+            await interaction.response.send_message(f"{interaction.user.name} your entrance {data[0][1]} is:\n{format_markdown(data[0][0])}", ephemeral=True)
 
     @entrance_group.command(name="remove")
     async def entrance_remove_command(self, interaction: discord.Interaction) -> None:
