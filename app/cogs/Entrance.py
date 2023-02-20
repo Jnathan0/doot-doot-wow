@@ -23,7 +23,7 @@ class Entrance(commands.Cog):
 
 
     @commands.Cog.listener()
-    async def on_voice_state_update(self, member: discord.Member, before, after):
+    async def on_voice_state_update(self, member: discord.Member, before, after) -> None:
         """ 
         Plays a user defined sound from the sounds catalog when the user joins the voice channel from not being in one before.
         If the uesr hasn't been in the voice for more than an hour, the entry sound will play when they connect.
@@ -51,17 +51,21 @@ class Entrance(commands.Cog):
             else:
                 db = GetDB(config.database_path)
 
-                db.cursor.execute("SELECT sound_id FROM entrance WHERE user_id=?", (uid,))
-                sound = db.cursor.fetchall()[0][0]
+                db.cursor.execute("SELECT sound_id, content_type FROM entrance WHERE user_id=?", (uid,))
+                data = db.cursor.fetchall()
+                sound = data[0][0]
                 if len(sound) == 0:
                     return
 
-
+            if data[0][1] == 'folder':
+                filepath = random.choice(sounds.alias_dict[sound]).path
+            else:
+                filepath = sounds.alias_dict[sound].path
             await asyncio.sleep(.7) # Let slow client connections get their ears open before we connect and play sounds
 
             vc = await channel.connect()
-            vc.play(discord.FFmpegPCMAudio(sounds.alias_dict[sound].path))
-            with audioread.audio_open(sounds.alias_dict[sound].path) as f:
+            vc.play(discord.FFmpegPCMAudio(filepath))
+            with audioread.audio_open(filepath) as f:
                 #Start Playing
                 while vc.is_playing():
                     await asyncio.sleep(f.duration)
