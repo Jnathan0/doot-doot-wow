@@ -24,8 +24,8 @@ class ImageAttachment():
 
     def download_file(self, file_bytes):
 
-        if self.attachment.size > config.image_size_limit:
-            raise Image_Too_Large_Error
+        # if self.attachment.size > config.image_size_limit:
+        #     raise Image_Too_Large_Error
 
         media_path = str(f"{self.base_path_map[self.filetype]}/")
 
