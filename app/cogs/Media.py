@@ -28,7 +28,7 @@ class Media(commands.Cog, commands.Command):
     
     @app_commands.command(name='add')
     @app_commands.default_permissions(attach_files=True)
-    @app_commands.checks.has_role(config.owb_id)
+    # @app_commands.checks.has_role(config.owb_id)
     @app_commands.describe(folder='(Optional) folder to add sound to.', )
     async def add_command(self, interaction: discord.Interaction, attachment: discord.Attachment, folder: Optional[str]):
         """
@@ -68,7 +68,7 @@ class Media(commands.Cog, commands.Command):
         #TODO: The code below should be refactored into its own module 
         new_dir = False
         uid = interaction.user.id
-        downloaded_file = await attachment.read(use_cached=True)
+        downloaded_file = await attachment.read(use_cached=False)
         filename = attachment.filename
         if folder:
             group = folder
@@ -100,10 +100,10 @@ class Media(commands.Cog, commands.Command):
             os.makedirs(save_dir)
 
         open(save_path, 'wb').write(downloaded_file)
-        if isLoud(save_path):
-            os.remove(save_path)
-            await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
-            return
+        # if isLoud(save_path):
+        #     os.remove(save_path)
+        #     await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
+        #     return
 
         confirmation_msg = ''
 
@@ -133,8 +133,12 @@ class Media(commands.Cog, commands.Command):
                 sounds.update_sounds()
             except Exception as e:
                 print(e)
-            await confirmation_view.interaction.response.edit_message(content=format_markdown(f'added {filename}, updating list'), view=None)
-            self.bot.reload_extension(f"cogs.Player")
+            if mygroup == 'root':
+                msg = f'added {sound_name}, updating list'
+            else:
+                msg = f'added {sound_id}, updating list'
+            await confirmation_view.interaction.response.edit_message(content=format_markdown(msg), view=None)
+            await self.bot.reload_extension(f"cogs.Player")
             return
         if not confirmation_view.confirmed:
             os.remove(save_path)
