@@ -19,7 +19,8 @@ class ImageAttachment():
     def _get_image_filetype(self):
         if self.attachment.content_type.split('/')[1] == 'gif':
             return "gifs"
-        return "images"
+        else:
+            return "images"
 
 
     def download_file(self, file_bytes):
