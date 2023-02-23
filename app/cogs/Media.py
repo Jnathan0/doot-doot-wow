@@ -51,8 +51,11 @@ class Media(commands.Cog, commands.Command):
                 file_bytes = await attachment.read()
                 image.delete_existing_image_file()
                 image.download_file(file_bytes)
-
-                sounds.update_sounds()
+                try:
+                    sounds.update_sounds()
+                except Exception as e:
+                    print(e)
+                    return await image_add_modal.interaction.followup.send(format_markdown("An error occoured while updating the sounds catalog, if this persists please notify an admin."), ephemeral=True)
                 await self.bot.reload_extension(f"cogs.Player")
                 return await image_add_modal.interaction.followup.send(f"Image uploaded for sound \"{sound}\"")
             
@@ -63,7 +66,7 @@ class Media(commands.Cog, commands.Command):
             
             except Exception as e:
                 print(e)
-                return await image_add_modal.interaction.followup.send(format_markdown("An error occoured while processing this command. If this persists please contact and admin."), ephemeral=True)
+                return await image_add_modal.interaction.followup.send(format_markdown("An error occoured while processing this command. If this persists please notify an admin."), ephemeral=True)
 
         #TODO: The code below should be refactored into its own module 
         new_dir = False
@@ -100,10 +103,10 @@ class Media(commands.Cog, commands.Command):
             os.makedirs(save_dir)
 
         open(save_path, 'wb').write(downloaded_file)
-        # if isLoud(save_path):
-        #     os.remove(save_path)
-        #     await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
-        #     return
+        if isLoud(save_path):
+            os.remove(save_path)
+            await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
+            return
 
         confirmation_msg = ''
 

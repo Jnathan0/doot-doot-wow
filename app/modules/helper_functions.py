@@ -1,8 +1,9 @@
 import datetime
 import calendar
-import subprocess
 import sqlite3
 import os
+import ffmpeg
+import re
 from pathlib import Path
 from .database import GetDB
 from .app_config import config
@@ -27,9 +28,18 @@ def isLoud(savepath):
     Makes a subprocess call to ffmpeg to get the mean volume. 
     """
     upper_limit = -8.0
-    cmd = 'ffmpeg -i '+ savepath + ' -filter:a volumedetect -f null /dev/null 2>&1 | grep -oP \'mean_volume: \\K.([0-9]?\\d+(\\.\\d+))\''
-    out = subprocess.getoutput(cmd)
-    num = float(out.split()[0])
+
+    stream = ffmpeg.input(savepath)
+    stream = ffmpeg.filter_(stream, 'volumedetect')
+    stream = ffmpeg.output(stream, '-', format='null')
+    err, out = ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+
+    # if there is output from ffmpeg subprocess stderr, raise exception
+    if err:
+        raise Exception(err.decode('utf-8'))
+
+    search = re.search(r"(?<=mean_volume:\s)([-+]?[0-9]*\.?[0-9]+)", out.decode('utf-8'))
+    num = float(search.group(0))
     if num >= upper_limit:
         return True
     else:
