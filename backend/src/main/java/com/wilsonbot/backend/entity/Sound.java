@@ -2,20 +2,24 @@ package com.wilsonbot.backend.entity;
 
 import lombok.*;
 import lombok.experimental.Accessors;
-import javax.persistence.*;
-import java.io.Serializable;
+import jakarta.persistence.*;
 
 @Data
 @NoArgsConstructor
-@Accessors(chain = true)
 @Entity
 @Table(name = "sounds")
-public class Sound implements Serializable{
-
-    private String sound_id;
-    private String sound_name;
-    private String category_id;
-    private String author_id;
+public class Sound {
+	@Id
+    @Column(name = "sound_id")
+    private String soundId;
+    @Column(name = "sound_name")
+    private String soundName;
+    @Column(name = "category_id")
+    private String categoryId;
+    @Column(name = "author_id")
+    private String authorId;
+    @Column(name = "plays")
     private Long plays;
+    @Column(name = "date")
     private String date; 
 }
