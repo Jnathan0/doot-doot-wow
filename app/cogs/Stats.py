@@ -120,7 +120,7 @@ class Stats(commands.Cog):
             message = f"---- SOUNDS ADDED FROM {day_string} - {today_string} ----"
             for item in info:
                 line = f"| Date: {item[1]} | Name: {item[0]} |\n"
-                if (len(message)+len(line)) > 1994:
+                if (len(message)+len(line)) > 1850:
                     embeds.append(format_markdown(message))
                     message = ""
                     message += line
@@ -134,7 +134,7 @@ class Stats(commands.Cog):
 
         except Exception as e:
             print(e)
-            await interaction.response.send_mesage((format_markdown("ERROR: Something broke for this specific command, maybe it will get fixed.")))
+            await interaction.response.send_message((format_markdown("ERROR: Something broke for this specific command, maybe it will get fixed.")))
             return
 
 # These commands are for checking aggregated, time-ranged stats from the Redis server #
