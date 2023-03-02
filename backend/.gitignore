@@ -38,3 +38,4 @@ out/
 
 ### Project Specific ###
 src/main/resources/application.properties
+.env

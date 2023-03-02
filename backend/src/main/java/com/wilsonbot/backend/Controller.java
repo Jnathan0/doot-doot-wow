@@ -45,8 +45,6 @@ public class Controller {
     public ResponseEntity<Sound> getSoundById(@PathVariable(value = "id") String id) {
         Sound sound = soundRepository.findBySoundId(id);
         return ResponseEntity.ok().body(sound);
-
-
     }
 
     // @PostMapping("/users")

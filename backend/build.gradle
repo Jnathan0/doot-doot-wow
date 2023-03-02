@@ -14,6 +14,20 @@ configurations {
 	}
 }
 
+ext.springPort = System.getenv('BACKEND_PORT')?: '42069'
+ext.postgresUrl = System.getenv('POSTGRES_URL')?: 'jdbc:postgresql://localhost:5432/'
+ext.postgresUser = System.getenv('POSTGRES_USERNAME')?: 'postgres'
+ext.postgresPassword = System.getenv('POSTGRES_PASSWORD')?: null
+
+bootRun {
+	args += ["--server.port=${springPort}", "--spring.datasource.url=${postgresUrl}", "--spring.datasource.username=${postgresUser}", "--spring.datasource.password=${postgresPassword}"]
+}
+
+
+springBoot {
+	mainClass = 'com.wilsonbot.backend.Application'
+}
+
 repositories {
 	mavenCentral()
 }
