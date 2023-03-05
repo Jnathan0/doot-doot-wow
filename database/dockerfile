@@ -1,0 +1,8 @@
+FROM postgres:alpine3.17
+
+# alpine only comes with ash, so we sprinkle some bash in
+# this allows us to use sexy bash features
+RUN apk add --no-cache bash
+
+COPY ./schema /schema
+COPY init-app.sh /docker-entrypoint-initdb.d
