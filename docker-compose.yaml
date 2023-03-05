@@ -44,3 +44,16 @@ services:
     volumes:
       - "${REDIS_RDB_DIR}:/db"
 
+  backend:
+    container_name: backend-service
+    network_mode: "host"
+    build:
+      context: ./backend
+      dockerfile: 
+    restart: always
+    environment:
+      - 
+    ports:
+      - 43069:43069
+  
+
