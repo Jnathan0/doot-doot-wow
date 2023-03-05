@@ -19,16 +19,34 @@ ext.postgresUrl = System.getenv('POSTGRES_URL')?: 'jdbc:postgresql://localhost:5
 ext.postgresUser = System.getenv('POSTGRES_USERNAME')?: 'postgres'
 ext.postgresPassword = System.getenv('POSTGRES_PASSWORD')?: null
 
-bootRun {
-	args += ["--server.port=${springPort}", 
-		"--spring.datasource.url=${postgresUrl}", 
-		"--spring.datasource.username=${postgresUser}", 
-		"--spring.datasource.password=${postgresPassword}",
-		"--spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true",
-		"--spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
-		"--spring.jpa.hibernate.ddl-auto=update"]
+
+tasks.register("bootRunProd") {
+	group = "application"
+	description = "Runs spring boot application with prod settings from docker environment variables"
+	doFirst{
+		args += ["--server.port=${springPort}", 
+			"--spring.datasource.url=${postgresUrl}", 
+			"--spring.datasource.username=${postgresUser}", 
+			"--spring.datasource.password=${postgresPassword}",
+			"--spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true",
+			"--spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
+			"--spring.jpa.hibernate.ddl-auto=update"]
+	}
+	finalizedBy("bootRun"){
+		args += args
+	}
 }
 
+tasks.register("bootRunDev"){
+	group = "application"
+	description = "Runs springboot application with dev settings from application-dev.properties"
+    doFirst {
+        tasks.bootRun.configure {
+            systemProperty("spring.profiles.active", "dev")
+        }
+	}
+	finalizedBy("bootRun")
+}
 
 springBoot {
 	mainClass = 'com.wilsonbot.backend.Application'
