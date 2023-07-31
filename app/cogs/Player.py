@@ -29,12 +29,12 @@ class Player(commands.Cog, commands.Command):
             sound_id = sound_object.sound_id
 
             call_type = "random"
-            config.sounds_queue.enqueue(increment_playcount, sound_id)
+            increment_playcount(sound_id)
         else:
             sound_id = command
 
             call_type = "direct"
-            config.sounds_queue.enqueue(increment_playcount, sound_id)
+            increment_playcount(sound_id)
 
         await player.play(ctx, sound_object, reverse)
 
@@ -66,10 +66,10 @@ class Player(commands.Cog, commands.Command):
             file_path = random.choice(random_path)
             sound_id = file_path.sound_id
             random_path = file_path
-            config.sounds_queue.enqueue(increment_playcount, sound_id)
+            increment_playcount(sound_id)
         else:
             sound_id = random_path.sound_id
-            config.sounds_queue.enqueue(increment_playcount, sound_id)
+            increment_playcount(sound_id)
 
         msg = await ctx.send(format_markdown("Random sound: "+str(sound_id)))
         
