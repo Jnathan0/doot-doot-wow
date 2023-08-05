@@ -15,7 +15,7 @@ convertdate==2.3.2
 croniter==1.0.12
 cycler==0.10.0
 git+https://github.com/kiki7000/discord.py-components.git#egg-discord-components
-discord.py==2.2.2
+git+https://github.com/Rapptz/discord.py.git@cdc220fa4c050b80bd1841967013fb91491d893f
 expiringdict==1.2.1
 ffmpeg-normalize==1.20.1
 hijri-converter==2.2.2
