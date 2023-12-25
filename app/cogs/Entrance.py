@@ -47,7 +47,7 @@ class Entrance(commands.Cog):
 
             month_day = datetime.today().strftime("%m-%d")
             if month_day in __holiday_map__.keys():
-                sound = random.choice(sounds.alias_dict[__holiday_map__[month_day]]).sound_id
+                filepath = random.choice(sounds.alias_dict[__holiday_map__[month_day]]).path
             else:
                 db = GetDB(config.database_path)
 
@@ -57,10 +57,10 @@ class Entrance(commands.Cog):
                 if len(sound) == 0:
                     return
 
-            if data[0][1] == 'folder':
-                filepath = random.choice(sounds.alias_dict[sound]).path
-            else:
-                filepath = sounds.alias_dict[sound].path
+                if data[0][1] == 'folder':
+                    filepath = random.choice(sounds.alias_dict[sound]).path
+                else:
+                    filepath = sounds.alias_dict[sound].path
             await asyncio.sleep(.7) # Let slow client connections get their ears open before we connect and play sounds
 
             vc = await channel.connect()
