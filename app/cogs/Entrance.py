@@ -61,6 +61,7 @@ class Entrance(commands.Cog):
                     filepath = random.choice(sounds.alias_dict[sound]).path
                 else:
                     filepath = sounds.alias_dict[sound].path
+                db.close()
             await asyncio.sleep(.7) # Let slow client connections get their ears open before we connect and play sounds
 
             vc = await channel.connect()
@@ -70,7 +71,6 @@ class Entrance(commands.Cog):
                 while vc.is_playing():
                     await asyncio.sleep(f.duration)
             await vc.disconnect()
-            db.close()
 
             # set a key:value pair of userid and entrance sound in the Redis cache and set it to expire in 3600 seconds (1 hour)
             with config.redis_connection.pipeline() as pipe:
