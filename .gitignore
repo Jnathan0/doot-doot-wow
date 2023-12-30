@@ -258,7 +258,7 @@ videos/
 images/*.png
 *.log.*
 *.log
-config.json
+config.yaml
 pid.txt
 /include
 dump.rdb

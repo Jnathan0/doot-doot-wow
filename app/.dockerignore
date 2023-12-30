@@ -1,5 +1,5 @@
 app.env.template
-config.example.json
+config.example.yaml
 Dockerfile
 *.db
-config.json
+config.yaml

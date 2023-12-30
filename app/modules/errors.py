@@ -66,7 +66,7 @@ class No_Attachment_Error(Error):
         return f"{self.message}"
 
 class Config_Key_Not_Exist_Error(Error):
-    def __init__(self, config_key, message = "Error: No valid config key found in config.json"):
+    def __init__(self, config_key, message = "Error: No valid config key found in config.yaml"):
         self.message = message
         self.config_key = config_key
 
@@ -76,7 +76,7 @@ class Config_Key_Not_Exist_Error(Error):
 class Image_Too_Large_Error(Error):
     """
     Error to handle when an attempted image upload is larger than the max file size
-    in bytes defined in conifg.js
+    in bytes defined in conifg.yaml
 
     Parameters:
         size_limit: The Upper size limit in Megabytes

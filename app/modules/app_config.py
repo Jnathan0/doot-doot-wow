@@ -1,4 +1,4 @@
-import json
+import yaml
 import os
 import redis
 import sys
@@ -12,7 +12,7 @@ from modules.errors import *
 
 __all__ = ('config')
 
-# See example_config.json and README.md for descriptions and examples of keys and values for required. 
+# See example_config.yaml and README.md for descriptions and examples of keys and values for required. 
 required = [
             'token', 
             'prefix', 
@@ -40,6 +40,7 @@ defaults_map = {
     "reverse_char": "-",
     "image_size_limit": 800000,
     "guild_id": 0,
+    "restricted_channels": None
 }
 
 # List of cogs to load into the bot
@@ -60,11 +61,11 @@ class AppConfig():
     Class for setting up application configuration at runtime. 
 
     Attributes:
-        _config - The config file handler for the app's config.json
+        _config - The config file handler for the app's config.yaml
         extensions - The list of cogs that are to be loaded into the bot at runtime
 
-        required - This is a list of the required attributes, who's values need to be read from the config.json.
-                   If the entry is missing in config.json, the program will attempt to retrive the value from a environment variable of the same name, assumed to be set.
+        required - This is a list of the required attributes, who's values need to be read from the config.yaml.
+                   If the entry is missing in config.yaml, the program will attempt to retrive the value from a environment variable of the same name, assumed to be set.
                    If there is neither, program will throw an error. 
 
         database_path - static path to the .db file in a file system
@@ -106,13 +107,13 @@ class AppConfig():
 
     def _get_config(self):
         base_path = str(Path(__file__).resolve().parents[1])
-        config_path = base_path+"/config.json"
+        config_path = base_path+"/config.yaml"
         try:
-            config_file = open(config_path, 'r')
+            with open(config_path, 'r') as file:
+                return yaml.safe_load(file)
         except FileNotFoundError as e: #TODO: make this into a custom error
             print(f"Warning: No config file found at path: {base_path}")
             return None
-        return json.loads(config_file.read())
 
     def _get_attribute_value(self, attribute_name):
         """
