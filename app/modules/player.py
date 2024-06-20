@@ -57,19 +57,19 @@ class Player:
         # will do a rickroll instead of the desired sound
         random_chance = random.randint(1, 500)
         if random_chance == 1:
-            source = discord.FFmpegPCMAudio(f"{config.sounds_path}/rickroll.mp3")
+            source = discord.FFmpegOpusAudio(f"{config.sounds_path}/rickroll.mp3")
 
         else:
             try:
                 if reverse == True:
-                    source = discord.FFmpegPCMAudio(sound_object.path, options='-af areverse')
-                    # source = discord.FFmpegPCMAudio(self.filename, options='-af acrusher=1:.45:52:0:log')
-                    # source = discord.FFmpegPCMAudio(self.filename, options='-af equalizer=f=50:width_type=o:width=2:g=20') bass boost ear rape 
-                    # source = discord.FFmpegPCMAudio(self.filename, options='-af areverse') reverse 
+                    source = discord.FFmpegOpusAudio(sound_object.path, options='-af areverse')
+                    # source = discord.FFmpegOpusAudio(self.filename, options='-af acrusher=1:.45:52:0:log')
+                    # source = discord.FFmpegOpusAudio(self.filename, options='-af equalizer=f=50:width_type=o:width=2:g=20') bass boost ear rape 
+                    # source = discord.FFmpegOpusAudio(self.filename, options='-af areverse') reverse 
                 else:
-                    source = discord.FFmpegPCMAudio(sound_object.path)
+                    source = discord.FFmpegOpusAudio(sound_object.path)
 
-                # source = discord.FFmpegPCMAudio(filename, options='-af areverse')
+                # source = discord.FFmpegOpusAudio(filename, options='-af areverse')
 
             # edge case: missing file error
             except FileNotFoundError:

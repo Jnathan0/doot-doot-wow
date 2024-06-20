@@ -65,7 +65,7 @@ class Entrance(commands.Cog):
             await asyncio.sleep(.7) # Let slow client connections get their ears open before we connect and play sounds
 
             vc = await channel.connect()
-            vc.play(discord.FFmpegPCMAudio(filepath))
+            vc.play(discord.FFmpegOpusAudio(filepath))
             with audioread.audio_open(filepath) as f:
                 #Start Playing
                 while vc.is_playing():
