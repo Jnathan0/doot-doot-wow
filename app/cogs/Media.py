@@ -108,6 +108,11 @@ class Media(commands.Cog, commands.Command):
             await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
             return
 
+        if checkExceedsDurationLimit(save_path):
+            os.remove(save_path)
+            await interaction.response.send_message(format_markdown(f"ERROR: Duration of media playback exceeds limit of {config.media_duration_limit} second(s)"))
+            return
+
         confirmation_msg = ''
 
         if new_dir:

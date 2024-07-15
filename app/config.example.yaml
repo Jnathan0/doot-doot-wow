@@ -15,6 +15,7 @@ redis_address: localhost
 redis_port: 6379
 redis_charset: utf-8
 image_size_limit: 8000000
+media_duration_seconds: 180
 restricted_channels:
   - 12345
   - 678910

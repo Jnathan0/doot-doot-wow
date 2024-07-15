@@ -9,6 +9,7 @@ from .database import GetDB
 from .app_config import config
 
 
+
 def restart_bot():
     os.system('. '+str(Path(__file__).resolve().parents[1])+'/DootRestart.sh')
 
@@ -45,6 +46,30 @@ def isLoud(savepath):
     else:
         return False
 
+def checkExceedsDurationLimit(savepath): 
+    """
+    Parameters:
+        savepath - A filepath to an audio file
+    
+    Takes a sound and returns a bool if the sound playback duration exceeds the duration configured
+    for the app. Makes a subprocess call to ffmpeg to get the duration.
+    """
+    duration_limit = config.media_duration_limit
+    stream = ffmpeg.input(savepath)
+    stream = ffmpeg.output(stream, '-', format='null')
+    err, out = ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+
+    # if there is output from ffmpeg subprocess stderr, raise exception
+    if err:
+        raise Exception(err.decode('utf-8'))
+    
+    search = re.search(r"(?<=Duration:\s)(?:[01]\d|2[0123]):(?:[012345]\d):(?:[012345]\d)", out.decode('utf-8'))
+    h, m, s = search.group(0).split(':')
+    duration_seconds = int(h) * 3600 + int(m) * 60 + int(s)
+    if duration_seconds > duration_limit:
+        return True
+    else:
+        return False
 
 def checkExists(group, filename):
     """
