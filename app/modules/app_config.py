@@ -41,7 +41,7 @@ defaults_map = {
     "image_size_limit": 800000,
     "guild_id": 0,
     "restricted_channels": "",
-    "media_duration_limit": 1
+    "media_duration_limit": 180
 }
 
 # List of cogs to load into the bot
