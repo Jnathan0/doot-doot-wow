@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Set timezone preference using $TZ env var
+# Can be configured as a docker runtime variable
+# Default: UTC
+cp /usr/share/zoneinfo/$TZ /etc/localtime
+
 set -exo pipefail
 
 nohup /env/bin/rqscheduler > scheduler.log &

@@ -1,4 +1,4 @@
-FROM python:3.10-alpine as base
+FROM python:3.10-alpine AS base
 FROM base AS builder
 
 ENV POETRY_VENV=/opt/poetry-venv
@@ -31,15 +31,18 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder $POETRY_VENV $POETRY_VENV
 
 RUN apk update && apk upgrade
-RUN apk add --no-cache sqlite==3.45.3-r1
-RUN apk add ffmpeg==6.1.1-r8 
-RUN apk add net-tools==2.10-r3
-RUN apk add nano==8.0-r0
-RUN apk add iputils==20240117-r0
+RUN apk add --no-cache sqlite
+RUN apk add ffmpeg
+RUN apk add net-tools
+RUN apk add nano
+RUN apk add iputils
+RUN apk add --no-cache tzdata
 
 ADD ./ /doot-doot/
 WORKDIR /doot-doot
 COPY --from=builder /.venv ./.venv
+
+ENV TZ="UTC"
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/bin/sh", "./init-app.sh"]
