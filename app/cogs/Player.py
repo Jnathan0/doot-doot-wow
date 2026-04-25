@@ -1,5 +1,4 @@
 import random
-import os
 import asyncio
 from discord.ext import commands
 from modules import config, sounds, player

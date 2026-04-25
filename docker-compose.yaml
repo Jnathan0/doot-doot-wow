@@ -20,6 +20,7 @@ services:
       - REVERSE_CHAR=$REVERSE_CHAR
       - IMAGE_SIZE_LIMIT=$IMAGE_SIZE_LIMIT
       - GUILD_ID=$GUILD_ID
+      - TZ=$TZ
     volumes:
       - "${SOUNDS_PARENT_DIRECTORY}:/sounds"
       - "${IMAGES_PARENT_DIRECTORY}:/images"
