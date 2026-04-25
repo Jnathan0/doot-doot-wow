@@ -1,8 +1,10 @@
-FROM python:3.10-alpine AS base
+FROM python:3.10-slim AS base
 FROM base AS builder
 
-RUN apk add git
-RUN apk add --no-cache --virtual .build-deps musl-dev linux-headers g++ gcc zlib-dev make python3-dev jpeg-dev musl-dev libffi-dev openssl-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git build-essential python3-dev libffi-dev libssl-dev \
+    zlib1g-dev libjpeg-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN pip install -U pip setuptools poetry
 
@@ -14,13 +16,9 @@ RUN python3 -m venv .venv && \
 
 FROM base
 
-COPY --from=builder /usr/bin /usr/bin
-COPY --from=builder /usr/lib /usr/lib
-COPY --from=builder /usr/local/bin /usr/local/bin
-COPY --from=builder /usr/local/lib /usr/local/lib
-
-RUN apk update && apk upgrade
-RUN apk add --no-cache sqlite ffmpeg net-tools nano iputils tzdata dumb-init
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    sqlite3 ffmpeg net-tools nano iputils-ping tzdata dumb-init \
+    && rm -rf /var/lib/apt/lists/*
 
 ADD ./ /doot-doot/
 WORKDIR /doot-doot
