@@ -24,6 +24,8 @@ ADD ./ /doot-doot/
 WORKDIR /doot-doot
 COPY --from=builder /.venv ./.venv
 
+RUN pip install poetry
+ENV PATH="/doot-doot/.venv/bin:$PATH"
 ENV TZ="UTC"
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
