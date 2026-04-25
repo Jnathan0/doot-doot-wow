@@ -2,10 +2,38 @@ import discord
 import random
 import asyncio
 from modules import config
-from modules.database import GetDB
-from pathlib import Path
-from discord.ext.commands import CommandNotFound
-from discord.utils import get
+
+_FFMPEG_BEFORE_OPTS = '-nostdin -hide_banner -loglevel error'
+_FFMPEG_OPTS = '-vn'
+
+
+def _make_source(sound_object, reverse):
+    # 1-in-500 chance of a rickroll instead of the requested sound
+    if random.randint(1, 500) == 1:
+        return discord.FFmpegOpusAudio(
+            f"{config.sounds_path}/rickroll.mp3",
+            before_options=_FFMPEG_BEFORE_OPTS,
+            options=_FFMPEG_OPTS,
+        )
+    opts = f'-af areverse {_FFMPEG_OPTS}' if reverse else _FFMPEG_OPTS
+    return discord.FFmpegOpusAudio(
+        sound_object.path,
+        before_options=_FFMPEG_BEFORE_OPTS,
+        options=opts,
+    )
+
+
+async def _maybe_send_media(ctx, sound_object):
+    try:
+        if sound_object.media is not None:
+            media_path_dict = {
+                "images": config.images_path,
+                "gifs": config.gifs_path,
+            }
+            file = discord.File(f"{media_path_dict[sound_object.media_parent_folder]}/{sound_object.media}")
+            await ctx.send(file=file, delete_after=10)
+    except Exception:
+        pass
 
 
 class Player:
@@ -18,25 +46,23 @@ class Player:
             return
         voice_channel = ctx.author.voice.channel
 
+        # Start ffmpeg before connecting so it warms up during the Discord handshake.
         try:
-            if sound_object.media is not None:
-                media_path_dict = {
-                    "images": config.images_path,
-                    "gifs": config.gifs_path
-                }
-                file = discord.File(str(f"{media_path_dict[sound_object.media_parent_folder]}/{sound_object.media}"))
-                await ctx.send(file=file, delete_after=10)
-        except:
-            pass
-        ##################################################################################################
-        
+            source = _make_source(sound_object, reverse)
+        except FileNotFoundError:
+            await ctx.send(
+                "There was an issue with playing sound: File Not Found. Its possible that host of bot forgot to copy "
+                "over a file. If this error occured on official bot please use D.github to report issue.")
+            return
 
         try:
-            voice_channel = await voice_channel.connect()
-
+            voice_client, _ = await asyncio.gather(
+                voice_channel.connect(),
+                _maybe_send_media(ctx, sound_object),
+            )
         except discord.Forbidden:
             await ctx.send(
-                "Command raised error \"403 Forbidden\". Please check if bot has permission to join and speak in voice "
+                'Command raised error "403 Forbidden". Please check if bot has permission to join and speak in voice '
                 "channel")
             return
         except TimeoutError:
@@ -53,58 +79,31 @@ class Player:
             print(f'Error trying to join a voicechannel: {e}')
             return
 
-        # There is a 1 in 500th chance that it
-        # will do a rickroll instead of the desired sound
-        random_chance = random.randint(1, 500)
-        if random_chance == 1:
-            source = discord.FFmpegOpusAudio(f"{config.sounds_path}/rickroll.mp3")
+        done = asyncio.Event()
+        loop = asyncio.get_running_loop()
 
-        else:
-            try:
-                if reverse == True:
-                    source = discord.FFmpegOpusAudio(sound_object.path, options='-af areverse')
-                    # source = discord.FFmpegOpusAudio(self.filename, options='-af acrusher=1:.45:52:0:log')
-                    # source = discord.FFmpegOpusAudio(self.filename, options='-af equalizer=f=50:width_type=o:width=2:g=20') bass boost ear rape 
-                    # source = discord.FFmpegOpusAudio(self.filename, options='-af areverse') reverse 
-                else:
-                    source = discord.FFmpegOpusAudio(sound_object.path)
-
-                # source = discord.FFmpegOpusAudio(filename, options='-af areverse')
-
-            # edge case: missing file error
-            except FileNotFoundError:
-                await ctx.send(
-                    "There was an issue with playing sound: File Not Found. Its possible that host of bot forgot to copy "
-                    "over a file. If this error occured on official bot please use D.github to report issue.")
         try:
-            voice_channel.play(source)
-            
-        # catching most common errors that can occur while playing effects
+            voice_client.play(source, after=lambda _: loop.call_soon_threadsafe(done.set))
         except discord.Forbidden:
             await ctx.send("There was issue playing a sound effect. please check if bot has speak permission")
-            await voice_channel.disconnect()
+            asyncio.create_task(voice_client.disconnect())
             return
-
         except TimeoutError:
             await ctx.send(
                 "There was a error while attempting to play the sound effect (Timeout) its possible that either discord "
                 "API or bot host has latency or network issues. Please try again later, if issues will continue contact "
                 "bot owner")
-            await voice_channel.disconnect()
+            asyncio.create_task(voice_client.disconnect())
             return
-
         except Exception as e:
             await ctx.send(
                 "There was an issue playing the sound. Please try again later. If issues will continue contact bot owner.")
-            await voice_channel.disconnect()
+            asyncio.create_task(voice_client.disconnect())
             print(f'Error trying to play a sound: {e}')
             return
 
-        while voice_channel.is_playing():
-            await asyncio.sleep(1)
+        await done.wait()
+        asyncio.create_task(voice_client.disconnect())
 
-        voice_channel.stop()
-
-        await voice_channel.disconnect()
 
 player = Player()

@@ -12,7 +12,8 @@ from modules.aliases import sounds
 
 # mapping of mm/dd to holidays
 # TODO: Refactor this in a less coupled way, shouldn't be hardcoding this. 
-__holiday_map__ = { "12-24" : "christmas",
+__holiday_map__ = { "03-17" : "stpattys",
+                    "12-24" : "christmas",
                     "12-25" : "christmas",
                     "12-31" : "newyears",
                     "01-01" : "newyears"}
