@@ -1,4 +1,6 @@
-.PHONY: help env install lock build build-bot up down restart rebuild clean clean-logs
+PYTEST ?= $(shell command -v $(CURDIR)/app/env/bin/pytest 2>/dev/null || command -v pytest)
+
+.PHONY: help env install lock build build-bot up down restart rebuild clean clean-logs test
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make \033[36m<target>\033[0m\n\nTargets:\n"} \
@@ -14,6 +16,9 @@ install: ## Install Python dependencies via Poetry
 
 lock: ## Re-solve and update poetry.lock
 	cd app && poetry lock
+
+test: ## Run the pytest suite (override with PYTEST=... if needed)
+	cd app && $(PYTEST) tests/ -v
 
 # ── Docker ─────────────────────────────────────────────────────────────────────
 
