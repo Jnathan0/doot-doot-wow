@@ -170,7 +170,7 @@ async def test_play_generic_exception_on_connect(mock_ffmpeg, mock_randint, mock
 
 
 @pytest.mark.asyncio
-@patch("modules.player.asyncio.create_task")
+@patch("modules.player.asyncio.create_task", side_effect=lambda coro: coro.close())
 @patch("modules.player.asyncio.get_running_loop")
 @patch("modules.player.random.randint", return_value=5)
 @patch("modules.player.discord.FFmpegOpusAudio")
@@ -193,7 +193,7 @@ async def test_play_forbidden_on_play(
 
 
 @pytest.mark.asyncio
-@patch("modules.player.asyncio.create_task")
+@patch("modules.player.asyncio.create_task", side_effect=lambda coro: coro.close())
 @patch("modules.player.asyncio.get_running_loop")
 @patch("modules.player.random.randint", return_value=5)
 @patch("modules.player.discord.FFmpegOpusAudio")
@@ -216,7 +216,7 @@ async def test_play_timeout_on_play(
 
 
 @pytest.mark.asyncio
-@patch("modules.player.asyncio.create_task")
+@patch("modules.player.asyncio.create_task", side_effect=lambda coro: coro.close())
 @patch("modules.player.asyncio.get_running_loop")
 @patch("modules.player.random.randint", return_value=5)
 @patch("modules.player.discord.FFmpegOpusAudio")
