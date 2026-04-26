@@ -1,4 +1,4 @@
-import random
+import secrets
 import asyncio
 from discord.ext import commands
 from modules import config, sounds, player
@@ -24,7 +24,7 @@ class Player(commands.Cog, commands.Command):
         sound_object = sounds.alias_dict[command]
 
         if isinstance(sound_object, list):
-            sound_object = random.choice(sound_object)
+            sound_object = secrets.choice(sound_object)
             sound_id = sound_object.sound_id
 
             call_type = "random"
@@ -60,9 +60,9 @@ class Player(commands.Cog, commands.Command):
         if command[-1] == config.reverse_char:
             command = command.split(str(config.sub_cmd_sep+config.reverse_char))[0]
             reverse = True
-        random_path = sounds.alias_dict[random.choice(list(sounds.alias_dict.keys()))]
+        random_path = sounds.alias_dict[secrets.choice(list(sounds.alias_dict.keys()))]
         if isinstance(random_path, list):
-            file_path = random.choice(random_path)
+            file_path = secrets.choice(random_path)
             sound_id = file_path.sound_id
             random_path = file_path
             increment_playcount(sound_id)
