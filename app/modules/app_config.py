@@ -7,6 +7,7 @@ from pathlib import Path
 from rq import Queue 
 from redis import Redis
 from modules.errors import *
+from modules.config_parsing import normalize_owb_id, parse_id_list
 
 #TODO:
 # - Refactor the config object creation to be created in main and then added as an attribute to the bot "client" class
@@ -42,7 +43,8 @@ defaults_map = {
     "image_size_limit": 800000,
     "guild_id": 0,
     "restricted_channels": "",
-    "media_duration_limit": 180
+    "media_duration_limit": 180,
+    "owner_ids": ""
 }
 
 # List of cogs to load into the bot
@@ -106,6 +108,7 @@ class AppConfig():
         for item in defaults_map.keys(): 
             setattr(self, item, self._get_attribute_value(item))
         self.extensions = __extensions__
+        self._normalize_permission_ids()
         self._validate_paths()
         self.metadata_db_path = self._validate_metadata_db_path()
         self.database_path = self._validate_sounds_db_path()
@@ -145,7 +148,8 @@ class AppConfig():
             print(f"Value for {attribute_name} is: {value}")
             return value
 
-        except TypeError as e:
+        # no config.yaml (TypeError) or the key is missing from it (KeyError)
+        except (TypeError, KeyError) as e:
             value = os.getenv(attribute_name.upper(), default = defaults_map[attribute_name])
             if value is None:
                 raise Config_Key_Not_Exist_Error(attribute_name)
@@ -161,6 +165,19 @@ class AppConfig():
             print("generic error")
             print(f"{e}")
             sys.exit(1)
+
+    def _normalize_permission_ids(self):
+        """
+        OWB_ID from the environment is a str, which discord.py would treat as a role name.
+        Convert ids to int, blank to None (only admins and the bot owner pass OWB role checks).
+        OWNER_IDS is an optional comma separated list of user ids that replaces the application owner lookup.
+        """
+        self.owb_id = normalize_owb_id(self.owb_id)
+        if self.owb_id is None:
+            print("Warning: owb_id is not set, only server admins and the bot owner can use OWB role commands")
+        elif isinstance(self.owb_id, str):
+            print(f"Warning: owb_id \"{self.owb_id}\" is a role name, a role id is more reliable (names can change)")
+        self.owner_ids = parse_id_list(self.owner_ids)
 
     def _validate_paths(self):
         paths = {

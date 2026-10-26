@@ -5,6 +5,7 @@ from discord.ext import commands
 from modules import config, sounds
 from modules.helper_functions import format_markdown, checkExists, checkGroup
 from modules.database import GetDB
+from modules.permissions import owb_role_required_prefix
 
 class ModTools(commands.Cog):
     def __init__(self, bot):
@@ -12,7 +13,7 @@ class ModTools(commands.Cog):
 
     @commands.group()
     @commands.guild_only()
-    @commands.has_role(config.owb_id)
+    @owb_role_required_prefix()
     async def mod(self, ctx):
         """
         Top level command to invoke subcommands for moderators

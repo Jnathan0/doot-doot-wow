@@ -10,6 +10,7 @@ database_path: /path/to/db
 metadata_db_path: /path/to/metadata
 sub_cmd_sep: " "
 owb_id: " "
+owner_ids: ""
 log_channel: 1234
 redis_address: localhost
 redis_port: 6379

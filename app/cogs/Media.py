@@ -18,6 +18,7 @@ from modules.imgprocessing import ImageAttachment
 from modules.media import ImageAddModal, SoundConfirmationDiag
 from modules.paths import safe_child, UnsafePath, INCOMING_DIR
 from modules.validation import validate_name, validate_sound_upload, InvalidName
+from modules.permissions import owb_role_required
 from discord.ext import commands
 from discord import app_commands
 
@@ -32,7 +33,8 @@ class Media(commands.Cog, commands.Command):
     
     @app_commands.command(name='add')
     @app_commands.default_permissions(attach_files=True)
-    # @app_commands.checks.has_role(config.owb_id)
+    @app_commands.guild_only()
+    @owb_role_required()
     @app_commands.describe(folder='(Optional) folder to add sound to.', )
     async def add_command(self, interaction: discord.Interaction, attachment: discord.Attachment, folder: Optional[str]):
         """

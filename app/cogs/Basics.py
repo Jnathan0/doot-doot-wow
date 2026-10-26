@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from modules import config
 from modules.helper_functions import format_markdown, restart_bot
+from modules.permissions import owb_role_required
 
 
 class Basics(commands.Cog):
@@ -36,7 +37,7 @@ class Basics(commands.Cog):
 
     @app_commands.command(name="restart")
     @app_commands.guild_only()
-    @app_commands.checks.has_role(config.owb_id) #decorator to see if whoever requested the command has the role specified, takes roleid argument in int or string form. 
+    @owb_role_required()
     async def restart(self, interaction: discord.Interaction) -> None:
         """
         Restarts the bot.
@@ -47,11 +48,6 @@ class Basics(commands.Cog):
         except FileNotFoundError:
             await interaction.response.send_message(format_markdown("Restarting Bot..."))
         restart_bot()
-    
-    @restart.error#error handaling for the restart function
-    async def restart_error(self,interaction, error):
-        if isinstance(error, discord.app_commands.MissingRole):#if @app_commands.checks.has_role() returns with MissingRole error, send message
-            await interaction.response.send_message(format_markdown("Cannot restart, \'owb\' role required"))
 
 async def setup(bot):
    await bot.add_cog(Basics(bot))
