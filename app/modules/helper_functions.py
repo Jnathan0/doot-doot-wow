@@ -1,6 +1,5 @@
 import datetime
 import calendar
-import sqlite3
 import os
 import ffmpeg
 import re
@@ -77,15 +76,11 @@ def checkExists(group, filename):
     Group can be a specific group that already exists or the Root folder
     Returns boolean.
     """
-    db = GetDB(config.database_path)
-    data = db.cursor.execute(f"SELECT EXISTS(SELECT sound_name FROM sounds WHERE category_id=\"{group}\" ANd sound_name=\"{filename}\")").fetchall()
-    db.close()
-
-    for item in data:
-        if item[0] == 1:
-            return True
-        else:
-            return False
+    with GetDB(config.database_path) as db:
+        row = db.cursor.execute(
+            "SELECT EXISTS(SELECT 1 FROM sounds WHERE category_id = ? AND sound_name = ?)",
+            (group, filename)).fetchone()
+    return bool(row[0])
 
 
 def checkGroup(group):
@@ -93,14 +88,11 @@ def checkGroup(group):
     Function checks to see if a group name is already a sound ID, to elinminate multiple instances of the same folder name.
     Returns Boolean
     """
-    db = GetDB(config.database_path)
-    data = db.cursor.execute(f"SELECT EXISTS(SELECT category_id FROM categories WHERE category_id=\"{group}\")").fetchall()
-    db.close()
-    for item in data:
-        if item[0] == 1:
-            return True
-        else:
-            return False
+    with GetDB(config.database_path) as db:
+        row = db.cursor.execute(
+            "SELECT EXISTS(SELECT 1 FROM categories WHERE category_id = ?)",
+            (group,)).fetchone()
+    return bool(row[0])
 
 def check_dir(self, sounds_path):
     save_dir = os.path.join(sounds_path, self.group)
@@ -134,11 +126,9 @@ def increment_playcount(sound_id):
     Parameters:
         sound_id: the sound_id to increment the playcount 
     """
-    conn = sqlite3.connect(config.database_path)
-    c = conn.cursor()
-    c.execute(f'''UPDATE sounds set plays=plays+1 WHERE sound_id="{sound_id}"''')
-    conn.commit()
-    c.close()
+    with GetDB(config.database_path) as db:
+        db.cursor.execute("UPDATE sounds SET plays = plays + 1 WHERE sound_id = ?", (sound_id,))
+        db.commit()
 
 
 ###############################
@@ -155,8 +145,7 @@ def update_quicksound(member, number, sound):
         - number: the quicksound slot to update 
         - sound: the sound ID to update the value to in the entry
     """
-    db = GetDB(config.database_path)
-    db.cursor.execute(f"DELETE FROM quicksounds WHERE user_id={member} AND alias={number}")
-    db.cursor.execute(f"INSERT INTO quicksounds (sound_id, user_id, alias) VALUES (?, ?, ?)", (sound, member, number))
-    db.commit()
-    db.close()
+    with GetDB(config.database_path) as db:
+        db.cursor.execute("DELETE FROM quicksounds WHERE user_id = ? AND alias = ?", (member, number))
+        db.cursor.execute("INSERT INTO quicksounds (sound_id, user_id, alias) VALUES (?, ?, ?)", (sound, member, number))
+        db.commit()

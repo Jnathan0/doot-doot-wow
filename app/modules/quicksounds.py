@@ -3,14 +3,12 @@ from discord.ext import commands
 from .aliases import sounds
 from .errors import *
 from .app_config import config
-from .helper_functions import checkExists, update_quicksound, format_markdown
+from .helper_functions import update_quicksound, format_markdown
 
 
 
 class Quicksound(discord.ui.Select):
-    def __init__(self, group, filename, argument):
-        self.group = group
-        self.filename = filename
+    def __init__(self, argument):
         self.argument = argument
         options=[
             discord.SelectOption(label="1"),
@@ -22,7 +20,8 @@ class Quicksound(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         member = interaction.user.id
         try:
-            if not checkExists(self.group, self.filename):
+            # re-check at selection time, the sound could have been removed since the command was run
+            if sounds.get_sound(self.argument) is None:
                 raise Sound_Not_Exist_Error
 
             config.worker_queue.enqueue(update_quicksound, member, int(self.values[0]), self.argument)

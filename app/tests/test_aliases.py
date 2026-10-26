@@ -64,8 +64,8 @@ def test_get_alias_info_flat_dir(mocker):
 
     mock_GetDB = mocker.patch("modules.aliases.GetDB")
     mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchone.return_value = None
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    mock_db.cursor.execute.return_value.fetchall.return_value = []
 
     mocker.patch("os.scandir", return_value=scandir_returning([file1, file2]))
 
@@ -92,8 +92,8 @@ def test_get_alias_info_with_subdir(mocker):
 
     mock_GetDB = mocker.patch("modules.aliases.GetDB")
     mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchone.return_value = None
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    mock_db.cursor.execute.return_value.fetchall.return_value = []
 
     mocker.patch("os.scandir", side_effect=[root_ctx, sub_ctx])
 
@@ -133,9 +133,9 @@ def test_get_alias_info_sound_with_media(mocker):
 
     mock_GetDB = mocker.patch("modules.aliases.GetDB")
     mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    # DB returns (image_id, folder)
-    mock_db.cursor.execute.return_value.fetchone.return_value = ("img.png", "images")
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    # DB returns (sound_id, image_id, folder) rows
+    mock_db.cursor.execute.return_value.fetchall.return_value = [("bark", "img.png", "images")]
 
     mocker.patch("os.scandir", return_value=scandir_returning([file_entry]))
 
@@ -152,8 +152,8 @@ def test_get_alias_info_sound_no_media(mocker):
 
     mock_GetDB = mocker.patch("modules.aliases.GetDB")
     mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchone.return_value = None
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    mock_db.cursor.execute.return_value.fetchall.return_value = []
 
     mocker.patch("os.scandir", return_value=scandir_returning([file_entry]))
 
@@ -171,8 +171,8 @@ def test_update_sounds(mocker):
     """update_sounds refreshes alias_dict and aliases from a new scandir result."""
     mock_GetDB = mocker.patch("modules.aliases.GetDB")
     mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchone.return_value = None
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    mock_db.cursor.execute.return_value.fetchall.return_value = []
 
     # First call (during __init__): empty dir
     mock_scandir = mocker.patch("os.scandir", return_value=scandir_returning([]))
@@ -191,3 +191,57 @@ def test_update_sounds(mocker):
     assert "ding" in si.alias_dict
     assert len(si.aliases) == 1
     assert "ding" in si.aliases
+
+
+def test_get_alias_info_skips_incoming_dir(mocker):
+    """The .incoming staging directory for unconfirmed uploads is not a category."""
+    incoming = make_dir_entry(".incoming", "/sounds/.incoming")
+    subdir = make_dir_entry("effects", "/sounds/effects")
+    sub_file = make_file_entry("bang.mp3", "/sounds/effects/bang.mp3")
+
+    mock_GetDB = mocker.patch("modules.aliases.GetDB")
+    mock_db = MagicMock()
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    mock_db.cursor.execute.return_value.fetchall.return_value = []
+
+    mocker.patch("os.scandir", side_effect=[scandir_returning([incoming, subdir]), scandir_returning([sub_file])])
+
+    si = SoundsInfo("/sounds")
+
+    assert si.category_list == ["effects"]
+    assert ".incoming" not in si.alias_dict
+
+
+def test_get_alias_info_loads_images_with_one_query(mocker):
+    """All image rows are read with a single static query, not one query per sound."""
+    files = [make_file_entry(f"s{i}.mp3", f"/sounds/s{i}.mp3") for i in range(5)]
+
+    mock_GetDB = mocker.patch("modules.aliases.GetDB")
+    mock_db = MagicMock()
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    mock_db.cursor.execute.return_value.fetchall.return_value = [("s3", "img.png", "images")]
+
+    mocker.patch("os.scandir", return_value=scandir_returning(files))
+
+    si = SoundsInfo("/sounds")
+
+    mock_db.cursor.execute.assert_called_once_with("SELECT sound_id, image_id, folder FROM images")
+    assert si.alias_dict["s3"].media == "img.png"
+    assert si.alias_dict["s0"].media is None
+
+
+def test_sound_lookup_helpers(mocker):
+    mocker.patch("modules.aliases.GetDB")
+    mocker.patch("os.scandir", return_value=scandir_returning([]))
+    si = SoundsInfo("/sounds")
+    bang = Sound(sound_id="effects bang")
+    si.alias_dict = {"effects": [bang], "effects bang": bang, "airhorn": Sound(sound_id="airhorn")}
+    si.category_list = ["effects"]
+
+    assert si.get_sound("effects bang") is bang
+    assert si.get_sound("effects") is None  # a folder is not a sound
+    assert si.get_sound('x" OR 1=1 OR "') is None
+    assert si.is_folder("effects") is True
+    assert si.is_folder("../db") is False
+    assert si.match_sounds("A") == ["airhorn", "effects bang"]
+    assert si.match_folders("eff") == ["effects"]

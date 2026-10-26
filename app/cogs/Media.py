@@ -5,7 +5,9 @@ and handles the insertion of database entries for the attributes of the media.
 import asyncio
 import requests
 import os
+import tempfile
 import discord
+from pathlib import Path
 from typing import Optional
 from datetime import date
 from modules import config, sounds, Sound
@@ -14,6 +16,8 @@ from modules.helper_functions import *
 from modules.database import *
 from modules.imgprocessing import ImageAttachment
 from modules.media import ImageAddModal, SoundConfirmationDiag
+from modules.paths import safe_child, UnsafePath, INCOMING_DIR
+from modules.validation import validate_name, validate_sound_upload, InvalidName
 from discord.ext import commands
 from discord import app_commands
 
@@ -39,13 +43,13 @@ class Media(commands.Cog, commands.Command):
         \nA sound can be added to a folder, which can contain multiple sounds.
         \n> Example Usage (adding a sound to a folder):\n `add foldername soundname`
         """
-        if attachment.content_type.split('/')[0] == 'image':
+        if (attachment.content_type or '').split('/')[0] == 'image':
             image_add_modal = ImageAddModal()
             await interaction.response.send_modal(image_add_modal)
             await image_add_modal.wait()
             sound = str(image_add_modal.sound)
             try:
-                if sound not in sounds.alias_dict:
+                if sounds.get_sound(sound) is None:
                     return await image_add_modal.interaction.followup.send(format_markdown(f"The sound '{sound}' does not exist, so you cannot add an image for it."))
                 image = ImageAttachment(attachment, sound)
                 file_bytes = await attachment.read()
@@ -69,20 +73,30 @@ class Media(commands.Cog, commands.Command):
                 return await image_add_modal.interaction.followup.send(format_markdown("An error occoured while processing this command. If this persists please notify an admin."), ephemeral=True)
 
         #TODO: The code below should be refactored into its own module 
-        new_dir = False
         uid = interaction.user.id
-        downloaded_file = await attachment.read(use_cached=False)
-        filename = attachment.filename
+        # never trust the attachment name as a path, only its final component is used
+        filename = Path(attachment.filename).name
+        sound_name = filename.split('.')[0]
+        try:
+            validate_sound_upload(filename, attachment.content_type)
+            validate_name("sound", sound_name)
+            # existing folders are allowed as-is (some predate the naming rules), new ones must be valid
+            if folder and not sounds.is_folder(folder):
+                validate_name("folder", folder)
+                if folder in sounds.alias_dict:
+                    raise InvalidName(f"Error: \"{folder}\" is already a sound name, please choose a different folder name.")
+        except InvalidName as e:
+            await interaction.response.send_message(format_markdown(str(e)), ephemeral=True)
+            return
+
         if folder:
             group = folder
+            mygroup = group
+            sound_id = mygroup + ' ' + sound_name
         else:
             group = ''
-        mygroup = group
-        sound_id = mygroup + ' ' + filename.split('.')[0]
-        sound_name = filename.split('.')[0]
-        if mygroup == '':
             mygroup = "root"
-            sound_id = filename.split('.')[0]
+            sound_id = sound_name
         author_id = uid
 
         if mygroup == "root":
@@ -91,46 +105,77 @@ class Media(commands.Cog, commands.Command):
                     await interaction.response.send_message(format_markdown(f"The sound name \'{sound_name}\' is a reserved command, please change the sound name and retry."))
                     return
 
-        if checkExists(mygroup, sound_name):
+        try:
+            if group:
+                save_dir = safe_child(config.sounds_path, group)
+                save_path = safe_child(config.sounds_path, group, filename)
+            else:
+                save_dir = safe_child(config.sounds_path)
+                save_path = safe_child(config.sounds_path, filename)
+        except UnsafePath:
+            await interaction.response.send_message(format_markdown("Error: invalid folder or file name."), ephemeral=True)
+            return
+
+        if checkExists(mygroup, sound_name) or sound_id in sounds.alias_dict or save_path.exists():
             await interaction.response.send_message(format_markdown(f"Sound name \"{sound_name}\" already exists for this folder. Please try naming it something else."))
             return             
 
-        save_dir = os.path.join(config.sounds_path, group)
-        save_path = os.path.join(save_dir, filename)
-        
-        if not os.path.exists(save_dir):
-            new_dir = True
-            os.makedirs(save_dir)
+        new_dir = not save_dir.exists()
 
-        open(save_path, 'wb').write(downloaded_file)
-        if isLoud(save_path):
-            os.remove(save_path)
-            await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
-            return
+        # stage the upload in a temp file, it is only moved into the sounds library once confirmed
+        incoming_dir = safe_child(config.sounds_path, INCOMING_DIR)
+        os.makedirs(incoming_dir, exist_ok=True)
+        downloaded_file = await attachment.read(use_cached=False)
+        with tempfile.NamedTemporaryFile(dir=incoming_dir, suffix=save_path.suffix, delete=False) as tmp:
+            tmp.write(downloaded_file)
+            tmp_path = tmp.name
 
-        if checkExceedsDurationLimit(save_path):
-            os.remove(save_path)
-            await interaction.response.send_message(format_markdown(f"ERROR: Duration of media playback exceeds limit of {config.media_duration_limit} second(s)"))
-            return
+        try:
+            try:
+                too_loud = isLoud(tmp_path)
+                too_long = not too_loud and checkExceedsDurationLimit(tmp_path)
+            except Exception as e:
+                print(e)
+                await interaction.response.send_message(format_markdown("ERROR: Could not read that file as audio, please upload a supported sound file."))
+                return
 
-        confirmation_msg = ''
+            if too_loud:
+                await interaction.response.send_message(format_markdown("ERROR: fUnNy bEcAuSe LoUd. Sound too loud, please choose a different file"))
+                return
 
-        if new_dir:
-            confirmation_msg = f"{interaction.user.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nThis will create a new folder with the name: ```{mygroup}```"
-        confirmation_msg = f"{interaction.user.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nTo the folder: ```{mygroup}```"
-        confirmation_view = SoundConfirmationDiag()
-        await interaction.response.send_message(content=confirmation_msg, view=confirmation_view)
-        await confirmation_view.wait()
-        if confirmation_view.confirmed:
+            if too_long:
+                await interaction.response.send_message(format_markdown(f"ERROR: Duration of media playback exceeds limit of {config.media_duration_limit} second(s)"))
+                return
+
+            if new_dir:
+                confirmation_msg = f"{interaction.user.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nThis will create a new folder with the name: ```{mygroup}```"
+            else:
+                confirmation_msg = f"{interaction.user.mention}\nYou are about to add sound: ```\"{sound_name}\"```\nTo the folder: ```{mygroup}```"
+            confirmation_view = SoundConfirmationDiag()
+            await interaction.response.send_message(content=confirmation_msg, view=confirmation_view)
+            await confirmation_view.wait()
+
+            if confirmation_view.confirmed is None:
+                await interaction.edit_original_response(content=format_markdown("Process timed out"), view=None)
+                return
+
+            if not confirmation_view.confirmed:
+                await confirmation_view.interaction.response.edit_message(content=format_markdown("Process cancelled"), view=None)
+                return
+
+            if save_path.exists():
+                await confirmation_view.interaction.response.edit_message(content=format_markdown(f"Sound name \"{sound_name}\" already exists for this folder. Please try naming it something else."), view=None)
+                return
+            os.makedirs(save_dir, exist_ok=True)
+            os.replace(tmp_path, save_path)
+
             mydate = date.today().strftime("%Y-%m-%d")
-            db = GetDB(config.database_path)
-            db.cursor.execute("INSERT OR IGNORE INTO categories (category_id) VALUES (\""+mygroup+"\")")
-            db.commit()
-            query = "INSERT INTO sounds (sound_id, sound_name, category_id, author_id, plays, date) VALUES (?,?,?,?,?,?);"
-            mytuple = (sound_id, sound_name, mygroup, author_id, 0, mydate)
-            db.cursor.execute(query, mytuple)
-            db.commit()
-            db.close()
+            with GetDB(config.database_path) as db:
+                db.cursor.execute("INSERT INTO categories (category_id) VALUES (?) ON CONFLICT (category_id) DO NOTHING", (mygroup,))
+                query = "INSERT INTO sounds (sound_id, sound_name, category_id, author_id, plays, date) VALUES (?,?,?,?,?,?);"
+                mytuple = (sound_id, sound_name, mygroup, author_id, 0, mydate)
+                db.cursor.execute(query, mytuple)
+                db.commit()
             try:
                 # # If sounds gets very large, insert into existing data structure 
                 # sound_object = Sound(sound_id = sound_id, path = save_path)
@@ -148,10 +193,10 @@ class Media(commands.Cog, commands.Command):
             await confirmation_view.interaction.response.edit_message(content=format_markdown(msg), view=None)
             await self.bot.reload_extension(f"cogs.Player")
             return
-        if not confirmation_view.confirmed:
-            os.remove(save_path)
-            await confirmation_view.interaction.response.edit_message(content=format_markdown("Process cancelled"), view=None)
-            return
+        finally:
+            # only ever remove the staged temp file, never anything in the sounds library
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
 
 async def setup(bot):

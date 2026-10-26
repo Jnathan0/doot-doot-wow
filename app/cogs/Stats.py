@@ -2,7 +2,7 @@ import discord
 import pandas as pd
 import traceback
 import re
-from typing import Optional
+from typing import List, Optional
 from datetime import date
 from dateutil.relativedelta import relativedelta
 from discord import app_commands
@@ -54,9 +54,14 @@ class Stats(commands.Cog):
         """
         if sound.lower() in ['hour', 'day', 'week', 'month', 'new']:
             return
-        db = GetDB(config.database_path)
-        db.cursor.execute("SELECT * FROM sounds WHERE sound_id=\""+sound+"\"")
-        info = db.cursor.fetchall()
+        info = []
+        # only look up exact, existing sound names
+        if sounds.get_sound(sound) is not None:
+            with GetDB(config.database_path) as db:
+                info = db.cursor.execute("SELECT * FROM sounds WHERE sound_id = ?", (sound,)).fetchall()
+        if not info:
+            await interaction.response.send_message(format_markdown(f"Error: sound \"{sound}\" not found."), ephemeral=True)
+            return
         user = await self.bot.fetch_user(info[0][3]) # Make the bot get a user object from the discord api, argument is unique user ID
         username = user.name
         embedvar = discord.Embed(title=f"{info[0][1]}", color=0x00ff00)
@@ -65,8 +70,11 @@ class Stats(commands.Cog):
         embedvar.add_field(name="Date Created", value=f"{info[0][5]}", inline=False)
         embedvar.add_field(name="Parent Folder", value=f"{info[0][2]}", inline=True)
         await interaction.response.send_message(embed=embedvar)
-        db.close()
         return
+
+    @stats_sound_command.autocomplete('sound')
+    async def stats_sound_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        return [app_commands.Choice(name=name, value=name) for name in sounds.match_sounds(current)]
             
     @group.command(name="user")
     async def stats_user_command(self, interaction: discord.Interaction, user: str) -> None:
@@ -76,10 +84,10 @@ class Stats(commands.Cog):
         for member in members:
             try:
                 db = GetDB(config.database_path)
-                db.cursor.execute("SELECT SUM(plays), COUNT(sound_id) FROM sounds WHERE author_id=\""+str(member.id)+"\"")
+                db.cursor.execute("SELECT SUM(plays), COUNT(sound_id) FROM sounds WHERE author_id = ?", (member.id,))
                 info = db.cursor.fetchall()
                 message = "User "+str(member.name)+" has added "+str(info[0][1])+" sounds with "+str(info[0][0])+" total plays!"
-                db.cursor.execute("SELECT sound_id, plays FROM sounds WHERE author_id=\""+str(member.id)+"\" ORDER BY plays DESC LIMIT 10;")
+                db.cursor.execute("SELECT sound_id, plays FROM sounds WHERE author_id = ? ORDER BY plays DESC LIMIT 10;", (member.id,))
                 info = db.cursor.fetchall()
                 message += "\n\n-------------------\n|TOP PLAYED SOUNDS|\n-------------------\n\n"
                 i = 1

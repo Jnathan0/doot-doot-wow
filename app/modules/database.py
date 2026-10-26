@@ -10,6 +10,16 @@ class GetDB:
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # roll back anything uncommitted if the block raised, always close the connection
+        if exc_type is not None:
+            self.conn.rollback()
+        self.close()
+        return False
     
     def close(self):
         self.conn.close()
