@@ -135,6 +135,10 @@ Where _x_ is the python 3 version you are using.
 The checks also run when a command is used, so changing the command permissions in
 Server Settings → Integrations can't let anyone else run them. Uses of `/admin` (and refused attempts) are posted to the log channel.
 
+When someone without the `OWB_ID` role tries `/add`, they are told the server admins were notified, and every
+server admin gets a DM saying who tried to upload what, with how to allow it (give them the role, or set `OWB_ID`).
+Repeated attempts by the same member DM the admins at most once every 10 minutes.
+
 # Anti-spam (sound-spam timeout)
 
 The bot can automatically stop a user from playing sounds for a while when they play sounds non-stop.

@@ -12,6 +12,7 @@ hides commands in the client (server admins can override it), so it is never the
 Use bot_owner_only() / guild_admin_only() / owb_role_required() on app commands,
 owb_role_required_prefix() on prefix commands, and ADMIN_DEFAULT for groups.
 """
+import asyncio
 import logging
 import time
 import discord
@@ -28,6 +29,9 @@ ADMIN_DEFAULT = Permissions(administrator=True)
 # one "tried to use" line per user per 5 minutes in the log channel
 DENIAL_LOG_INTERVAL = 300
 _last_denial_log = {}
+
+# on_denied hooks run in the background so the denial reply isn't held up, keep references until they finish
+_background_tasks = set()
 
 
 class NotBotOwner(app_commands.CheckFailure):
@@ -49,6 +53,16 @@ class MissingOWBRolePrefix(commands.CheckFailure):
 # ---------------------------------------------------------------------------
 # Predicates
 # ---------------------------------------------------------------------------
+
+def guild_owb_role(guild):
+    """The guild's OWB role (OWB_ID as a role id, or as a role name), or None if unset or not in this guild."""
+    owb_id = normalize_owb_id(config.owb_id)
+    if owb_id is None or guild is None:
+        return None
+    if isinstance(owb_id, int):
+        return guild.get_role(owb_id)
+    return discord.utils.get(guild.roles, name=owb_id)
+
 
 def resolve_owb_role(member):
     """The member's OWB role (OWB_ID as a role id, or as a role name), or None."""
@@ -99,14 +113,31 @@ def guild_admin_only():
     return app_commands.check(predicate)
 
 
-def owb_role_required():
+def owb_role_required(message="This command requires the OWB role.", on_denied=None):
+    """
+    on_denied: optional coroutine function called with the interaction when a member is refused,
+    run in the background (it can't delay the reply) and errors in it are only printed.
+    """
     async def predicate(interaction: Interaction) -> bool:
         if interaction.guild is None:
             raise app_commands.NoPrivateMessage()
         if not await has_owb_role(interaction):
-            raise MissingOWBRole("This command requires the OWB role.")
+            if on_denied is not None:
+                _run_in_background(on_denied(interaction))
+            raise MissingOWBRole(message)
         return True
     return app_commands.check(predicate)
+
+
+def _run_in_background(coro):
+    async def runner():
+        try:
+            await coro
+        except Exception as e:
+            print(f"permissions: denial hook failed: {e}")
+    task = asyncio.create_task(runner())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 def owb_role_required_prefix():
