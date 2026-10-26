@@ -15,6 +15,7 @@ from modules.aliases import DisplayablePath
 from modules.paths import safe_child, UnsafePath, INCOMING_DIR
 from modules.metadata import update_metadata
 from modules.quicksounds import Quicksound
+from modules.antispam import sound_guard_check, record_play
 
 # This cog allows users to query the sounds and folders that the bot has and returns messages 
 # based on the function they call
@@ -135,6 +136,7 @@ class SoundsUtils(commands.Cog):
 
     @commands.command(aliases=['1', '2', '3'], hidden=True)
     @commands.guild_only()
+    @sound_guard_check("quicksound")
     async def quicksounds(self, ctx):
         """
         Assign a sound to numerical 1, 2 and 3 numbers as a shortcut to play a sound
@@ -147,6 +149,7 @@ class SoundsUtils(commands.Cog):
         if command in ['1','2','3']:
             server = ctx.message.guild.voice_client
             if server:
+                await record_play(ctx, "quicksound", ignored=True)
                 return
             with GetDB(config.database_path) as db:
                 row = db.cursor.execute("SELECT sound_id FROM quicksounds WHERE user_id = ? AND alias = ?", (member, int(command))).fetchone()
@@ -155,6 +158,7 @@ class SoundsUtils(commands.Cog):
                 await ctx.message.author.send(format_markdown(f"You dont have a sound set for slot {command}."))
                 return
             else:
+                await record_play(ctx, "quicksound")
                 await player.play(ctx, sounds.alias_dict[sound])
                 config.sounds_queue.enqueue(increment_playcount, sound)
                 config.worker_queue.enqueue(update_metadata, member, sound, call_type = "direct")

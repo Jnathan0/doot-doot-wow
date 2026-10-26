@@ -120,3 +120,55 @@ And create the metadata database
 Navigate to the directory that contains `main.py` and issue the command:
 `python3.x main.py`
 Where _x_ is the python 3 version you are using. 
+
+# Anti-spam (sound-spam timeout)
+
+The bot can automatically stop a user from playing sounds for a while when they play sounds non-stop.
+It is **off by default**: nothing is ever blocked until an admin runs `/antispam enable`.
+
+A timeout only blocks the bot's sound commands (sound and folder names, `random`, quicksounds `1`/`2`/`3`).
+The user can still chat and use voice, and entrance sounds still play.
+While timed out, sound commands are deleted and the user gets a reminder at most once every 30 seconds.
+
+**The rule:** a user is timed out when they play `max_plays` sounds within `window`, without a break of `reset_gap` or more
+between plays. A break of `reset_gap` forgives the streak, so a few quick sounds followed by a pause never trip it.
+
+| Setting | Default |
+|---|---|
+| Enabled | off |
+| Rule | 10 plays within 3 minutes, a 30 second break resets the count |
+| Timeout | 10 minutes |
+| Escalation | ×2 for each timeout in the last day (10m → 20m → 40m …), capped at 1 week |
+| Exempt | Members with the Administrator permission |
+| Counted plays | sound and folder commands, `random`, quicksounds. Not commands sent while the bot is already playing |
+| Notices | In the channel (deleted after 15s), plus the log channel |
+| Discord timeout | off |
+
+**Commands** (`/antispam …`, only visible to and usable by members with the Administrator permission):
+
+| Command | What it does |
+|---|---|
+| `status` | Show the settings and the number of active timeouts |
+| `enable` / `disable` | Turn it on or off. Disabling pauses active timeouts, it does not lift them (use `pardon`) |
+| `rule max_plays window_amount window_unit [reset_gap_amount reset_gap_unit]` | Set the trigger. A reset gap of `0` turns break forgiveness off |
+| `duration amount unit` | Base timeout length |
+| `escalation enabled [multiplier] [max_amount max_unit] [lookback_amount lookback_unit]` | Repeat offender settings |
+| `counting [random] [quicksounds] [ignored_attempts]` | Which plays count. `ignored_attempts` counts commands sent while the bot is busy |
+| `notify mode` | Where users are told: `channel`, `dm`, `both` or `none` |
+| `options [exempt_admins] [log_channel] [discord_timeout]` | Exempt admins, log channel messages, and the optional Discord timeout |
+| `exempt-role add/remove/list` | Roles that are never timed out |
+| `reset-defaults` | Restore the defaults above (keeps it enabled or disabled), asks for confirmation |
+| `timeout member amount unit [reason]` | Manually time a member out of sounds |
+| `pardon member` | Lift a member's timeout |
+| `active` | List active timeouts |
+| `history member` | A member's last 10 timeouts |
+
+Durations take an amount and a unit (seconds, minutes, hours, days or weeks). Timeouts can be up to 52 weeks.
+
+**Discord timeout** (`/antispam options discord_timeout:True`, off by default) also applies Discord's own member timeout,
+which mutes the user **server-wide** (text and voice), not just sounds. It needs the bot to have the Moderate Members
+permission and a role above the user's, and Discord limits it to 4 weeks.
+
+Settings and timeouts are stored in `metadata.db` (tables `antispam_settings` and `sound_timeouts`, see `app/db/antispam.sql`).
+The tables are created automatically when the bot starts, and timeouts survive restarts.
+Pardoned timeouts don't count toward escalation.

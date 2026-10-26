@@ -250,3 +250,63 @@ def sent_text(send_mock):
         if "content" in call.kwargs:
             parts.append(str(call.kwargs["content"]))
     return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Anti-spam fixtures
+#
+# The shared modules.antispam.guard is never loaded in tests, so it stays inert
+# (nothing blocked or counted). Tests that need a working guard build their own
+# SoundGuard over a real metadata.db in tmp with a fake clock.
+# ---------------------------------------------------------------------------
+
+from types import SimpleNamespace  # noqa: E402
+
+
+class FakeClock:
+    """Callable clock used for both the monotonic and the wall clock of a SoundGuard."""
+    def __init__(self, start=1_700_000_000.0):
+        self.now = start
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
+@pytest.fixture
+def clock():
+    return FakeClock()
+
+
+@pytest.fixture
+def antispam_store(tmp_path):
+    from modules.antispam import TimeoutStore
+    store = TimeoutStore(str(tmp_path / "metadata.db"), db_factory=RealGetDB)
+    store.ensure_schema()
+    return store
+
+
+@pytest.fixture
+async def antispam_guard(antispam_store, clock):
+    from modules.antispam import SoundGuard
+    guard = SoundGuard(antispam_store, clock=clock, wall_clock=clock)
+    await guard.load()
+    return guard
+
+
+def make_member(user_id=1, guild_id=10, admin=False, role_ids=()):
+    """Fake discord.Member with what the guard and the AntiSpam cog use."""
+    member = MagicMock()
+    member.id = user_id
+    member.guild.id = guild_id
+    member.guild_permissions.administrator = admin
+    member.roles = [SimpleNamespace(id=role_id) for role_id in role_ids]
+    member.mention = f"<@{user_id}>"
+    member.bot = False
+    member.send = AsyncMock()
+    member.timeout = AsyncMock()
+    member.is_timed_out = MagicMock(return_value=False)
+    member.__str__ = MagicMock(return_value=f"member{user_id}")
+    return member

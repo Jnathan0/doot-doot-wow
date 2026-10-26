@@ -55,7 +55,8 @@ __extensions__ = [
     'Media',
     'Entrance',
     'Player',
-    'ModTools'
+    'ModTools',
+    'AntiSpam'
 ]
 
 def _create_db_from_schema(db_file, schema_file):
@@ -185,8 +186,8 @@ class AppConfig():
                     print("File \"metadata.sql\" not found, required to create the metadata database.\nExiting...")
                     sys.exit(1)
                 _create_db_from_schema(f"{str(self.metadata_db_path)}/metadata.db", f"{app_path}/db/metadata.sql")
-                return f"{str(self.database_path)}/metadata.db"
-            return f"{str(self.database_path)}/metadata.db"
+                return f"{str(self.metadata_db_path)}/metadata.db"
+            return f"{str(self.metadata_db_path)}/metadata.db"
        
         except Exception as e:
             print(e)
