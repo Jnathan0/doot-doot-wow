@@ -296,3 +296,132 @@ class TestStopCommand:
         mock_ctx.message.guild.voice_client = AsyncMock()
         await cog.stop(mock_ctx)
         mock_ctx.message.delete.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# anti-spam wiring
+# ---------------------------------------------------------------------------
+
+
+class TestAntiSpamWiring:
+    @pytest.fixture
+    def guard(self, mocker):
+        from modules import antispam
+        mocker.patch.object(antispam.guard, "on_play", new_callable=AsyncMock, return_value=None)
+        mocker.patch.object(antispam.guard, "is_blocked", return_value=None)
+        return antispam.guard
+
+    @pytest.fixture
+    def play(self, mocker, mock_sound):
+        mocker.patch("cogs.Player.increment_playcount")
+        mocker.patch.object(cog_module.config.worker_queue, "enqueue")
+        mocker.patch("cogs.Player.asyncio.sleep", new_callable=AsyncMock)
+        mocker.patch("cogs.Player.secrets.choice", return_value="test_sound")
+        cog_module.sounds.alias_dict = {"test_sound": mock_sound}
+        return mocker.patch("cogs.Player.player.play", new_callable=AsyncMock)
+
+    @pytest.mark.parametrize("name,play_type", [("master_command", "direct"), ("random", "random")])
+    async def test_blocked_user_never_reaches_play(self, guard, play, mock_ctx, name, play_type):
+        from modules.antispam import SoundTimeoutActive
+        guard.is_blocked.return_value = MagicMock(user_id=12345)
+        mock_ctx.bot.can_run = AsyncMock(return_value=True)
+        command = getattr(make_cog(), name)
+
+        with pytest.raises(SoundTimeoutActive) as excinfo:
+            if await command.can_run(mock_ctx):
+                await command(mock_ctx)
+        assert excinfo.value.play_type == play_type
+        play.assert_not_called()
+        guard.on_play.assert_not_called()
+
+    @pytest.mark.parametrize("name,play_type", [("master_command", "direct"), ("random", "random")])
+    async def test_allowed_user_passes_the_check(self, guard, play, mock_ctx, name, play_type):
+        mock_ctx.bot.can_run = AsyncMock(return_value=True)
+        assert await getattr(make_cog(), name).can_run(mock_ctx) is True
+
+    @pytest.mark.parametrize("name,play_type,content", [
+        ("master_command", "direct", "!test_sound"), ("random", "random", "!random")])
+    async def test_on_play_called_once_per_successful_play(self, guard, play, mock_ctx, name, play_type, content):
+        mock_ctx.message.content = content
+        mock_ctx.send.return_value = AsyncMock()
+        await getattr(make_cog(), name)(mock_ctx)
+        play.assert_called_once()
+        guard.on_play.assert_awaited_once_with(mock_ctx.author, play_type, ignored=False)
+
+    async def test_folder_pick_counts_as_direct(self, guard, play, mock_ctx, mocker):
+        sound = MagicMock(sound_id="category test")
+        cog_module.sounds.alias_dict = {"test_sound": [sound]}
+        mocker.patch("cogs.Player.secrets.choice", return_value=sound)
+        await make_cog().master_command(mock_ctx)
+        guard.on_play.assert_awaited_once_with(mock_ctx.author, "direct", ignored=False)
+
+    @pytest.mark.parametrize("name,play_type,content", [
+        ("master_command", "direct", "!test_sound"), ("random", "random", "!random")])
+    async def test_busy_bot_records_an_ignored_attempt(self, guard, play, mock_ctx, name, play_type, content):
+        mock_ctx.message.guild.voice_client = MagicMock()
+        mock_ctx.message.content = content
+        await getattr(make_cog(), name)(mock_ctx)
+        play.assert_not_called()
+        guard.on_play.assert_awaited_once_with(mock_ctx.author, play_type, ignored=True)
+
+    async def test_trip_dispatches_event_and_still_plays(self, guard, play, mock_ctx, mock_sound):
+        info = MagicMock()
+        guard.on_play.return_value = info
+        await make_cog().master_command(mock_ctx)
+        mock_ctx.bot.dispatch.assert_called_once_with("sound_timeout", mock_ctx, info)
+        play.assert_called_once_with(mock_ctx, mock_sound, False)
+
+    async def test_guard_failure_never_breaks_playback(self, guard, play, mock_ctx):
+        guard.on_play.side_effect = RuntimeError("database is locked")
+        await make_cog().master_command(mock_ctx)
+        play.assert_called_once()
+
+    async def test_stop_is_never_guarded(self):
+        cog = make_cog()
+        assert all("sound_guard_check" not in check.__qualname__ for check in cog.stop.checks)
+
+
+class TestQuicksoundAntiSpamWiring:
+    @pytest.fixture
+    def setup(self, sounds_db, sounds_catalog, mocker):
+        import cogs.SoundsUtils as utils_module
+        from modules import antispam
+        from tests.conftest import RealGetDB
+        on_play = mocker.patch.object(antispam.guard, "on_play", new_callable=AsyncMock, return_value=None)
+        blocked = mocker.patch.object(antispam.guard, "is_blocked", return_value=None)
+        mocker.patch.object(utils_module, "GetDB", RealGetDB)
+        mocker.patch.object(utils_module.config, "sounds_queue")
+        mocker.patch.object(utils_module.config, "worker_queue")
+        play = mocker.patch("cogs.SoundsUtils.player.play", new_callable=AsyncMock)
+        cog = utils_module.SoundsUtils(MagicMock())
+        for command in cog.__cog_commands__:
+            command.cog = cog
+        return cog, on_play, blocked, play
+
+    def ctx(self, mock_ctx):
+        mock_ctx.message.author.id = 111     # has airhorn on slot 1 in the seeded db
+        mock_ctx.message.content = "!1"
+        mock_ctx.bot.can_run = AsyncMock(return_value=True)
+        return mock_ctx
+
+    async def test_quicksound_records_play(self, setup, mock_ctx):
+        cog, on_play, _, play = setup
+        ctx = self.ctx(mock_ctx)
+        await cog.quicksounds(ctx)
+        play.assert_called_once()
+        on_play.assert_awaited_once_with(ctx.author, "quicksound", ignored=False)
+
+    async def test_quicksound_busy_records_ignored_attempt(self, setup, mock_ctx):
+        cog, on_play, _, play = setup
+        ctx = self.ctx(mock_ctx)
+        ctx.message.guild.voice_client = MagicMock()
+        await cog.quicksounds(ctx)
+        play.assert_not_called()
+        on_play.assert_awaited_once_with(ctx.author, "quicksound", ignored=True)
+
+    async def test_quicksound_blocked(self, setup, mock_ctx):
+        from modules.antispam import SoundTimeoutActive
+        cog, on_play, blocked, play = setup
+        blocked.return_value = MagicMock(user_id=111)
+        with pytest.raises(SoundTimeoutActive):
+            await cog.quicksounds.can_run(self.ctx(mock_ctx))

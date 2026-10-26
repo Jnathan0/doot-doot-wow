@@ -4,6 +4,7 @@ from discord.ext import commands
 from modules import config, sounds, player
 from modules.metadata import update_metadata
 from modules.helper_functions import *
+from modules.antispam import sound_guard_check, record_play
 
 class Player(commands.Cog, commands.Command):
     def __init__(self, bot):
@@ -11,9 +12,11 @@ class Player(commands.Cog, commands.Command):
 
     @commands.command(aliases=sounds.aliases, hidden=True)
     @commands.guild_only()
+    @sound_guard_check("direct")
     async def master_command(self, ctx):
         server = ctx.message.guild.voice_client
         if server:
+            await record_play(ctx, "direct", ignored=True)
             return
         user_id = int(ctx.message.author.id)
         command = ctx.message.content.split(config.prefix)[1]
@@ -35,6 +38,7 @@ class Player(commands.Cog, commands.Command):
             call_type = "direct"
             increment_playcount(sound_id)
 
+        await record_play(ctx, "direct")
         await player.play(ctx, sound_object, reverse)
 
         config.worker_queue.enqueue(update_metadata, user_id, sound_id, call_type)
@@ -42,6 +46,7 @@ class Player(commands.Cog, commands.Command):
 
     @commands.command(aliases=['r'])
     @commands.guild_only()
+    @sound_guard_check("random")
     async def random(self, ctx):
         """
         Plays a random sound from the /sounds directory.
@@ -52,6 +57,7 @@ class Player(commands.Cog, commands.Command):
         server = ctx.message.guild.voice_client
         
         if server:
+            await record_play(ctx, "random", ignored=True)
             return
         member = ctx.message.author.id
         command = ctx.message.content.split(config.prefix)[1]
@@ -72,6 +78,7 @@ class Player(commands.Cog, commands.Command):
 
         msg = await ctx.send(format_markdown("Random sound: "+str(sound_id)))
         
+        await record_play(ctx, "random")
         await player.play(ctx, random_path, reverse)
         config.worker_queue.enqueue(update_metadata, member, str(sound_id), call_type = "random")
 
