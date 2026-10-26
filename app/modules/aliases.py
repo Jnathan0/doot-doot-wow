@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from .app_config import config 
 from .database import GetDB
+from .paths import INCOMING_DIR
 
 class Sound:
     def __init__(self, sound_id = None, path = None,  media = None, media_parent_folder = None):
@@ -25,19 +26,30 @@ class SoundsInfo:
         self.alias_dict, self.category_list = self.getAliasInfo()
         self.aliases = list(self.alias_dict.keys())
 
+    def _load_images(self):
+        """
+        Returns {sound_id: (image_id, folder)} for every image row, loaded with a single query.
+        The first row for a sound wins, matching the previous per-sound fetchone() lookups.
+        """
+        images = {}
+        with GetDB(config.database_path) as db:
+            rows = db.cursor.execute("SELECT sound_id, image_id, folder FROM images").fetchall()
+        for sound_id, image_id, folder in rows:
+            images.setdefault(sound_id, (image_id, folder))
+        return images
+
     # This function needs a big ole' refactor 
     def getAliasInfo(self):
         alias_dict = {}
         category_list = []
+        images = self._load_images()
 
         with os.scandir(self.sounds_path) as root_dir:
             for item in root_dir:
                 if item.is_file():
                     sound_id = str(item.name.split('.')[0])
                     path = item.path
-                    db = GetDB(config.database_path)
-                    db.set_row_factory(lambda cursor, row: row[0:2])
-                    media = db.cursor.execute(f"SELECT image_id, folder FROM images WHERE sound_id=\"{sound_id}\"").fetchone()
+                    media = images.get(sound_id)
                     media_parent_folder = None
                     media_name = None
                     if media is not None:
@@ -45,9 +57,9 @@ class SoundsInfo:
                         media_parent_folder = f"{media[1]}"
                     sound_object = Sound(sound_id = sound_id, path = path, media = media_name, media_parent_folder = media_parent_folder)
                     alias_dict[sound_object.sound_id] = sound_object
-                    db.close()
 
-                if item.is_dir():
+                # uploads waiting for confirmation are staged here, they are not a category
+                if item.is_dir() and item.name != INCOMING_DIR:
                     alias_dict[item.name] = []
                     category_list.append(item.name)
                     with os.scandir(item.path) as subdir:
@@ -55,17 +67,35 @@ class SoundsInfo:
                             sound_name = str(file.name.split('.')[0])
                             path = file.path
                             sound_id = item.name + " " + sound_name
-                            db = GetDB(config.database_path)
-                            db.set_row_factory(lambda cursor, row: row[0:2])
-                            media = db.cursor.execute(f"SELECT image_id, folder FROM images WHERE sound_id=\"{sound_id}\"").fetchone()
+                            media = images.get(sound_id)
                             if media is not None:
                                 media = f"{media[1]}/{media[0]}"
                             sound_object = Sound(sound_id = sound_id, path = path, media = media)
                             alias_dict[sound_object.sound_id] = sound_object
                             alias_dict[item.name].append(sound_object)
-                            db.close()
         
         return alias_dict, category_list
+
+    def get_sound(self, name):
+        """Returns the Sound for an exact sound_id, or None. Folder names do not count as sounds."""
+        sound = self.alias_dict.get(name)
+        if isinstance(sound, Sound):
+            return sound
+        return None
+
+    def is_folder(self, name):
+        """True if name is exactly an existing folder (category) name."""
+        return name in self.category_list
+
+    def match_sounds(self, current, limit=25):
+        """Sound ids containing current (case-insensitive), for slash command autocomplete."""
+        current = (current or "").lower()
+        return [name for name in sorted(self.alias_dict) if isinstance(self.alias_dict[name], Sound) and current in name.lower()][:limit]
+
+    def match_folders(self, current, limit=25):
+        """Folder names containing current (case-insensitive), for slash command autocomplete."""
+        current = (current or "").lower()
+        return [name for name in sorted(self.category_list) if current in name.lower()][:limit]
 
     def update_sounds(self):
         # maybe just change this into an insert into the alias_dict instead of rebuilding the whole thing?

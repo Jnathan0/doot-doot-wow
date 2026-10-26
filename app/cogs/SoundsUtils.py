@@ -12,6 +12,7 @@ from modules.menus import ButtonMenu
 from modules.helper_functions import *
 from modules.errors import *
 from modules.aliases import DisplayablePath
+from modules.paths import safe_child, UnsafePath, INCOMING_DIR
 from modules.metadata import update_metadata
 from modules.quicksounds import Quicksound
 
@@ -51,10 +52,8 @@ class SoundsUtils(commands.Cog):
             member = interaction.guild.get_member(int(matches[0]))
             try:
                 user = member.id
-                db = GetDB(config.database_path)
-                db.cursor.execute(f"SELECT sound_id FROM sounds WHERE author_id={user} ORDER BY sound_id ASC")
-                info = db.cursor.fetchall()
-                db.close()
+                with GetDB(config.database_path) as db:
+                    info = db.cursor.execute("SELECT sound_id FROM sounds WHERE author_id = ? ORDER BY sound_id ASC", (user,)).fetchall()
                 pages = []
                 message = f"----------- SOUNDS FOR {member.name} -----------\n"
                 for item in info:
@@ -73,7 +72,7 @@ class SoundsUtils(commands.Cog):
                 return
 
         else:
-            paths = DisplayablePath.make_tree(Path(config.sounds_path))
+            paths = DisplayablePath.make_tree(Path(config.sounds_path), criteria=lambda path: path.name != INCOMING_DIR)
             msg_limit = 1988
             size = 0
             message = []
@@ -106,13 +105,16 @@ class SoundsUtils(commands.Cog):
         message = ""
         if folder:
             try:
-                path = os.listdir(config.sounds_path+'/'+folder)
+                # only list folders the bot knows about, never an arbitrary path
+                if not sounds.is_folder(folder):
+                    raise FileNotFoundError(folder)
+                path = os.listdir(safe_child(config.sounds_path, folder))
                 message += "📁 There are "+str(len(path))+" sounds in the "+folder+" folder:\n\n"
                 for item in list(path):
                     message+=os.path.splitext(item)[0]+'\n'
                 await interaction.response.send_message(format_markdown(message))
                 return
-            except FileNotFoundError as e:
+            except (FileNotFoundError, NotADirectoryError, UnsafePath) as e:
                 await interaction.response.send_message(format_markdown(f"Error: folder \"{folder}\" not found."))
                 return
         else:
@@ -125,11 +127,11 @@ class SoundsUtils(commands.Cog):
                 print(e)
                 await interaction.response.send_message(format_markdown(f"No folders found."))
                 return
-    ### discord only allows 25 or less options for slash commands so imma leave this commented out
-    # @folders_command.autocomplete('folder')
-    # async def folders_autocomplete(self, interaction: discord.Interaction, current: str,) -> List[app_commands.Choice[str]]:
-    #     folders = sounds.category_list
-    #     return [app_commands.Choice(name=folder, value=folder) for folder in folders if current.lower() in folder.lower()]
+
+    # discord shows at most 25 autocomplete choices, so only the first 25 matches are returned
+    @folders_command.autocomplete('folder')
+    async def folders_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        return [app_commands.Choice(name=folder, value=folder) for folder in sounds.match_folders(current)]
 
     @commands.command(aliases=['1', '2', '3'], hidden=True)
     @commands.guild_only()
@@ -146,10 +148,9 @@ class SoundsUtils(commands.Cog):
             server = ctx.message.guild.voice_client
             if server:
                 return
-            db = GetDB(config.database_path)
-            db.cursor.execute(f"SELECT sound_id FROM quicksounds WHERE user_id={member} AND alias={command}")
-            sound = db.cursor.fetchall()[0][0]
-            db.close()
+            with GetDB(config.database_path) as db:
+                row = db.cursor.execute("SELECT sound_id FROM quicksounds WHERE user_id = ? AND alias = ?", (member, int(command))).fetchone()
+            sound = row[0] if row else ""
             if len(sound) == 0:
                 await ctx.message.author.send(format_markdown(f"You dont have a sound set for slot {command}."))
                 return
@@ -164,31 +165,30 @@ class SoundsUtils(commands.Cog):
         """
         Set a sound to a quicksound slot via UI prompt.
         """
-        input_sound = sound.split(' ')
-        if len(input_sound) == 2:
-            group = input_sound[0]
-            filename = input_sound[1]
-        if len(input_sound) == 1:
-            group = "root"
-            filename = input_sound[0]
-        
+        # the whole input has to be an existing sound, it is stored exactly as given
+        if sounds.get_sound(sound) is None:
+            await interaction.response.send_message(format_markdown(f"Error: sound \"{sound}\" does not exist."), ephemeral=True)
+            return
+
         view = ui.View()
-        view.add_item(Quicksound(group, filename, sound))
+        view.add_item(Quicksound(sound))
         await interaction.response.send_message("Select quicksound slot", view=view, ephemeral=True)
+
+    @quicksounds_set_command.autocomplete('sound')
+    async def quicksounds_set_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        return [app_commands.Choice(name=name, value=name) for name in sounds.match_sounds(current)]
 
     @quicksounds_group.command(name="info")
     async def quicksounds_info_command(self, interaction: discord.Interaction) -> None:
         """
         Get info on the current quicksounds set for yourself
         """
-        db = GetDB(config.database_path)
-        db.cursor.execute(f"SELECT alias,sound_id FROM QUICKSOUNDS WHERE user_id={interaction.user.id} ORDER BY alias")
-        data = db.cursor.fetchall()
+        with GetDB(config.database_path) as db:
+            data = db.cursor.execute("SELECT alias, sound_id FROM quicksounds WHERE user_id = ? ORDER BY alias", (interaction.user.id,)).fetchall()
         embedvar = discord.Embed(title=f"{interaction.user.name}'s Quicksounds", color=0x00ff00)
         for item in data:
             embedvar.add_field(name=f"Slot {item[0]}", value=f"{item[1]}")
         await interaction.response.send_message(embed=embedvar, ephemeral=True)
-        db.close()
 
 
     @entrance_group.command(name="set")
@@ -202,53 +202,51 @@ class SoundsUtils(commands.Cog):
             await interaction.response.send_message(format_markdown(f"Error cannot set SOUND and FOLDER, please choose one."), ephemeral=True)
             return
         if sound:
-            db = GetDB(config.database_path)
-            given_sound = sound.split(' ')
-            group = 'root'
-            sound_name = given_sound[0]
-
-            if len(given_sound) == 2:
-                group = given_sound[0]
-                sound_name = given_sound[1]
-
-            if not checkExists(group, sound_name):
-                interaction.response.send_message(format_markdown(f"Error: Cannot set entrance, sound {sound} does not exist."), ephemeral=True)
+            # the whole input has to be an existing sound, store its canonical id
+            sound_object = sounds.get_sound(sound)
+            if sound_object is None:
+                await interaction.response.send_message(format_markdown(f"Error: Cannot set entrance, sound {sound} does not exist."), ephemeral=True)
                 return
+            sound = sound_object.sound_id
             try:
-                db = GetDB(config.database_path)
-                db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
-                db.cursor.execute(f"INSERT INTO entrance(sound_id, user_id) VALUES(\"{sound}\",{interaction.user.id})")
-                db.commit()
+                with GetDB(config.database_path) as db:
+                    db.cursor.execute("DELETE FROM entrance WHERE user_id = ?", (interaction.user.id,))
+                    db.cursor.execute("INSERT INTO entrance (sound_id, user_id, content_type) VALUES (?, ?, ?)", (sound, interaction.user.id, "sound"))
+                    db.commit()
                 await interaction.response.send_message(format_markdown(f"Set entry sound to: \"{sound}\" for User {interaction.user.name}"), ephemeral=True)
-                db.close()
             except Exception as e:
                 await interaction.response.send_message(format_markdown(f"Error: an error occoured attempting to set entry sound. Please contact an admin if this persists."))
                 print(e)
 
         if folder:
-            if not checkGroup(folder):
+            if not sounds.is_folder(folder):
                 await interaction.response.send_message(format_markdown(f"Error: Cannot set entrance, folder {folder} does not exist."), ephemeral=True)
                 return
             try:
-                db = GetDB(config.database_path)
-                db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
-                db.cursor.execute(f"INSERT INTO entrance(sound_id, user_id, content_type) VALUES(\"{folder}\",{interaction.user.id},\"folder\")")
-                db.commit()
+                with GetDB(config.database_path) as db:
+                    db.cursor.execute("DELETE FROM entrance WHERE user_id = ?", (interaction.user.id,))
+                    db.cursor.execute("INSERT INTO entrance (sound_id, user_id, content_type) VALUES (?, ?, ?)", (folder, interaction.user.id, "folder"))
+                    db.commit()
                 await interaction.response.send_message(format_markdown(f"Set entry folder to: \"{folder}\" for User {interaction.user.name}"), ephemeral=True)
-                db.close()
             except Exception as e:
                 await interaction.response.send_message(format_markdown(f"Error: an error occoured attempting to set entry sound. Please contact an admin if this persists."))
                 print(e)
+
+    @entrance_set_command.autocomplete('sound')
+    async def entrance_sound_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        return [app_commands.Choice(name=name, value=name) for name in sounds.match_sounds(current)]
+
+    @entrance_set_command.autocomplete('folder')
+    async def entrance_folder_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        return [app_commands.Choice(name=folder, value=folder) for folder in sounds.match_folders(current)]
 
     @entrance_group.command(name="info")
     async def entrance_info_command(self, interaction: discord.Interaction) -> None:
         """
         View currently set entrance sound for yourself.
         """
-        db = GetDB(config.database_path)
-        db.cursor.execute(f"SELECT sound_id, content_type FROM entrance WHERE user_id={interaction.user.id}")
-        data = db.cursor.fetchall()
-        db.close()
+        with GetDB(config.database_path) as db:
+            data = db.cursor.execute("SELECT sound_id, content_type FROM entrance WHERE user_id = ?", (interaction.user.id,)).fetchall()
         if len(data) == 0:
             await interaction.response.send_message(format_markdown("You don't have an entry sound set."), ephemeral=True)
             return
@@ -260,9 +258,9 @@ class SoundsUtils(commands.Cog):
         """
         Removes your entrance sound.
         """
-        db = GetDB(config.database_path)
-        db.cursor.execute(f"DELETE FROM entrance WHERE user_id={interaction.user.id}")
-        db.commit()
+        with GetDB(config.database_path) as db:
+            db.cursor.execute("DELETE FROM entrance WHERE user_id = ?", (interaction.user.id,))
+            db.commit()
         await interaction.response.send_message(format_markdown("Removed entry sound."), ephemeral=True)
         
 

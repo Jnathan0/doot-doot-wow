@@ -33,82 +33,70 @@ def test_get_last_thursday_is_current_month():
 
 
 # ---------------------------------------------------------------------------
-# increment_playcount — patch sqlite3.connect
+# DB helpers — patch GetDB (used as a context manager)
 # ---------------------------------------------------------------------------
 
+def mock_getdb(mocker, row=None):
+    mock_GetDB = mocker.patch("modules.helper_functions.GetDB")
+    mock_db = MagicMock()
+    mock_GetDB.return_value.__enter__.return_value = mock_db
+    mock_db.cursor.execute.return_value.fetchone.return_value = row
+    return mock_GetDB, mock_db
+
+
 def test_increment_playcount(mocker):
-    mock_connect = mocker.patch("modules.helper_functions.sqlite3.connect")
-    mock_conn = MagicMock()
-    mock_connect.return_value = mock_conn
-    mock_cursor = MagicMock()
-    mock_conn.cursor.return_value = mock_cursor
+    mock_GetDB, mock_db = mock_getdb(mocker)
 
     sound_id = "test_sound"
     increment_playcount(sound_id)
 
-    # execute was called once; its argument should mention UPDATE and the sound id
-    mock_cursor.execute.assert_called_once()
-    sql_arg = mock_cursor.execute.call_args[0][0]
+    # the sound id is passed as a bound parameter, never formatted into the SQL text
+    mock_db.cursor.execute.assert_called_once()
+    sql_arg, params = mock_db.cursor.execute.call_args[0]
     assert "UPDATE" in sql_arg
-    assert sound_id in sql_arg
+    assert sound_id not in sql_arg
+    assert params == (sound_id,)
 
-    mock_conn.commit.assert_called_once()
+    mock_db.commit.assert_called_once()
+    mock_GetDB.return_value.__exit__.assert_called_once()
 
-
-# ---------------------------------------------------------------------------
-# checkExists — patch GetDB
-# ---------------------------------------------------------------------------
 
 def test_check_exists_true(mocker):
-    mock_GetDB = mocker.patch("modules.helper_functions.GetDB")
-    mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchall.return_value = [(1,)]
+    mock_GetDB, mock_db = mock_getdb(mocker, row=(1,))
 
     result = checkExists("mygroup", "mysound")
 
     assert result is True
-    mock_db.close.assert_called_once()
+    assert mock_db.cursor.execute.call_args[0][1] == ("mygroup", "mysound")
+    mock_GetDB.return_value.__exit__.assert_called_once()
 
 
 def test_check_exists_false(mocker):
-    mock_GetDB = mocker.patch("modules.helper_functions.GetDB")
-    mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchall.return_value = [(0,)]
+    mock_GetDB, mock_db = mock_getdb(mocker, row=(0,))
 
     result = checkExists("mygroup", "mysound")
 
     assert result is False
-    mock_db.close.assert_called_once()
+    mock_GetDB.return_value.__exit__.assert_called_once()
 
-
-# ---------------------------------------------------------------------------
-# checkGroup — patch GetDB
-# ---------------------------------------------------------------------------
 
 def test_check_group_true(mocker):
-    mock_GetDB = mocker.patch("modules.helper_functions.GetDB")
-    mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchall.return_value = [(1,)]
+    mock_GetDB, mock_db = mock_getdb(mocker, row=(1,))
 
     result = checkGroup("mygroup")
 
     assert result is True
-    mock_db.close.assert_called_once()
+    assert mock_db.cursor.execute.call_args[0][1] == ("mygroup",)
+    mock_GetDB.return_value.__exit__.assert_called_once()
 
 
 def test_check_group_false(mocker):
-    mock_GetDB = mocker.patch("modules.helper_functions.GetDB")
-    mock_db = MagicMock()
-    mock_GetDB.return_value = mock_db
-    mock_db.cursor.execute.return_value.fetchall.return_value = [(0,)]
+    mock_GetDB, mock_db = mock_getdb(mocker, row=(0,))
 
     result = checkGroup("mygroup")
 
     assert result is False
-    mock_db.close.assert_called_once()
+    mock_GetDB.return_value.__exit__.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

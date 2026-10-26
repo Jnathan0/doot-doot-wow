@@ -135,3 +135,118 @@ def mock_sounds_info():
     info.alias_dict = {"test_sound": sound, "category": [category_sound]}
     info.aliases = ["test_sound", "category"]
     return info
+
+
+# ---------------------------------------------------------------------------
+# Real SQLite fixtures (used by the SQL injection / path traversal tests)
+#
+# modules.database is stubbed above, so the real GetDB class is loaded from
+# its file under a private name. Tests patch it into the modules they exercise.
+# ---------------------------------------------------------------------------
+
+import importlib.util  # noqa: E402
+import sqlite3  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+APP_DIR = Path(__file__).resolve().parents[1]
+
+
+def load_real_module(name, relative_path):
+    """Load an app module from disk, bypassing the MagicMock stub registered in sys.modules."""
+    spec = importlib.util.spec_from_file_location(name, APP_DIR / relative_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+RealGetDB = load_real_module("modules._real_database", "modules/database.py").GetDB
+
+SEED_SOUNDS = [
+    ("airhorn", "airhorn", "root", 111, 10, "2024-01-01"),
+    ("#teamwork", "#teamwork", "root", 111, 3, "2024-01-02"),
+    ("effects bang", "bang", "effects", 222, 5, "2024-01-03"),
+    ("Marc Rebillet yeah", "yeah", "Marc Rebillet", 222, 7, "2024-01-04"),
+]
+SEED_IMAGES = [
+    ("airhorn", "img1.png", "images"),
+    ("effects bang", "img2.gif", "gifs"),
+    ("#teamwork", "img3.png", "images"),
+]
+
+
+def db_rows(db_file, query, params=()):
+    conn = sqlite3.connect(db_file)
+    try:
+        return conn.execute(query, params).fetchall()
+    finally:
+        conn.close()
+
+
+@pytest.fixture
+def sounds_db(tmp_path, mocker):
+    """
+    A real sounds.db built from db/sounds.sql at <tmp>/db/sounds.db, seeded with a few rows.
+    config.database_path points at it and the helper/alias modules use the real GetDB.
+    """
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    db_file = db_dir / "sounds.db"
+    conn = sqlite3.connect(db_file)
+    conn.executescript((APP_DIR / "db" / "sounds.sql").read_text())
+    conn.executemany("INSERT INTO categories (category_id) VALUES (?)", [("root",), ("effects",), ("Marc Rebillet",)])
+    conn.executemany("INSERT INTO sounds VALUES (?, ?, ?, ?, ?, ?)", SEED_SOUNDS)
+    conn.executemany("INSERT INTO images VALUES (?, ?, ?)", SEED_IMAGES)
+    conn.execute("INSERT INTO quicksounds VALUES ('airhorn', 111, 1)")
+    conn.commit()
+    conn.close()
+
+    mocker.patch.object(_mock_config, "database_path", str(db_file))
+    mocker.patch("modules.helper_functions.GetDB", RealGetDB)
+    mocker.patch("modules.aliases.GetDB", RealGetDB)
+    return db_file
+
+
+@pytest.fixture
+def sounds_catalog(mocker):
+    """Point the shared `sounds` catalog at a fixed set of sounds and folders matching SEED_SOUNDS."""
+    from modules.aliases import sounds
+
+    airhorn = Sound(sound_id="airhorn", path="/sounds/airhorn.mp3")
+    teamwork = Sound(sound_id="#teamwork", path="/sounds/#teamwork.mp3")
+    bang = Sound(sound_id="effects bang", path="/sounds/effects/bang.mp3")
+    yeah = Sound(sound_id="Marc Rebillet yeah", path="/sounds/Marc Rebillet/yeah.mp3")
+    alias_dict = {
+        "airhorn": airhorn,
+        "#teamwork": teamwork,
+        "effects": [bang],
+        "effects bang": bang,
+        "Marc Rebillet": [yeah],
+        "Marc Rebillet yeah": yeah,
+    }
+    mocker.patch.object(sounds, "alias_dict", alias_dict)
+    mocker.patch.object(sounds, "category_list", ["effects", "Marc Rebillet"])
+    mocker.patch.object(sounds, "aliases", list(alias_dict))
+    return sounds
+
+
+def make_interaction(user_id=999):
+    """Fake discord.Interaction with async response helpers."""
+    interaction = MagicMock()
+    interaction.user.id = user_id
+    interaction.user.name = "tester"
+    interaction.user.mention = f"<@{user_id}>"
+    interaction.response.send_message = AsyncMock()
+    interaction.response.send_modal = AsyncMock()
+    interaction.response.defer = AsyncMock()
+    interaction.edit_original_response = AsyncMock()
+    return interaction
+
+
+def sent_text(send_mock):
+    """Concatenated positional/content text of every call made to an AsyncMock sender."""
+    parts = []
+    for call in send_mock.call_args_list:
+        parts.extend(str(a) for a in call.args)
+        if "content" in call.kwargs:
+            parts.append(str(call.kwargs["content"]))
+    return "\n".join(parts)

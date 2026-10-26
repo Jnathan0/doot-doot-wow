@@ -1,6 +1,7 @@
 import yaml
 import os
 import redis
+import sqlite3
 import sys
 from pathlib import Path
 from rq import Queue 
@@ -56,6 +57,17 @@ __extensions__ = [
     'Player',
     'ModTools'
 ]
+
+def _create_db_from_schema(db_file, schema_file):
+    """Creates a sqlite database file from a .sql schema file without shelling out to the sqlite3 CLI."""
+    with open(schema_file, 'r') as file:
+        schema = file.read()
+    conn = sqlite3.connect(db_file)
+    try:
+        conn.executescript(schema)
+        conn.commit()
+    finally:
+        conn.close()
 
 class AppConfig():
     """
@@ -172,7 +184,7 @@ class AppConfig():
                 if not os.path.isfile(f"{app_path}/db/metadata.sql"):
                     print("File \"metadata.sql\" not found, required to create the metadata database.\nExiting...")
                     sys.exit(1)
-                os.system(f"/bin/bash -c \"cd {str(self.metadata_db_path)} && /usr/bin/sqlite3 metadata.db < {app_path}/db/metadata.sql\"")
+                _create_db_from_schema(f"{str(self.metadata_db_path)}/metadata.db", f"{app_path}/db/metadata.sql")
                 return f"{str(self.database_path)}/metadata.db"
             return f"{str(self.database_path)}/metadata.db"
        
@@ -188,7 +200,7 @@ class AppConfig():
                 if not os.path.isfile(f"{app_path}/db/sounds.sql"):
                     print("File \"sounds.sql\" not found, required to create the sounds database.\nExiting...")
                     sys.exit(1)
-                os.system(f"/bin/bash -c \"cd {str(self.database_path)} && /usr/bin/sqlite3 sounds.db < {app_path}/db/sounds.sql\"")
+                _create_db_from_schema(f"{str(self.database_path)}/sounds.db", f"{app_path}/db/sounds.sql")
                 return f"{str(self.database_path)}/sounds.db"
             return f"{str(self.database_path)}/sounds.db"
         
