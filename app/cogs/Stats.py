@@ -18,7 +18,8 @@ class Stats(commands.Cog):
 
     group = app_commands.Group(
         name="stats", 
-        description="Example Usage: `/stats`"
+        description="Example Usage: `/stats`",
+        guild_only=True  # /stats user looks up guild members
     )
     
     @group.command(name="top")

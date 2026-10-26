@@ -36,6 +36,7 @@ class SoundsUtils(commands.Cog):
 
 
     @app_commands.command(name="sounds")
+    @app_commands.guild_only()  # user: looks up guild members
     @app_commands.describe(user="@username")
     async def sounds_command(self, interaction: discord.Interaction, user: Optional[str]) -> None:
         """

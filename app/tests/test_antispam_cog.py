@@ -12,11 +12,13 @@ from discord.ext import commands
 
 import cogs.AntiSpam as module
 from modules.antispam import AntiSpamSettings, InvalidSetting, SoundTimeoutActive
+from modules.permissions import NotGuildAdmin
 from tests.conftest import db_rows, make_member, sent_text
 
 
-def make_admin_interaction(guild_id=10, user_id=99, admin=True):
+def make_admin_interaction(guild_id=10, user_id=99, admin=True, owner=False):
     interaction = MagicMock()
+    interaction.client.is_owner = AsyncMock(return_value=owner)
     interaction.guild_id = guild_id
     interaction.guild.id = guild_id
     interaction.user.id = user_id
@@ -83,8 +85,30 @@ async def test_command_tree(antispam_guard, mocker):
     assert int(payload["default_member_permissions"]) == discord.Permissions(administrator=True).value
 
 
+def all_commands(group):
+    for command in group.commands:
+        if isinstance(command, app_commands.Group):
+            yield from all_commands(command)
+        else:
+            yield command
+
+
+async def test_every_command_runs_the_admin_check(antispam_guard, mocker):
+    mocker.patch.object(module, "guard", antispam_guard)
+    bot = commands.Bot(command_prefix="'", intents=discord.Intents.default())
+    await module.setup(bot)
+    commands_ = list(all_commands(bot.tree.get_command("antispam")))
+    assert len(commands_) == 17
+    for command in commands_:
+        with pytest.raises(NotGuildAdmin):
+            await command._check_can_run(make_admin_interaction(admin=False))
+        assert await command._check_can_run(make_admin_interaction(admin=True)) is True
+        # the bot owner passes the admin tier
+        assert await command._check_can_run(make_admin_interaction(admin=False, owner=True)) is True
+
+
 @pytest.mark.parametrize("path", [("status",), ("enable",), ("pardon",), ("exempt-role", "add")])
-async def test_every_command_runs_the_admin_check(antispam_guard, mocker, path):
+async def test_admin_check_by_path(antispam_guard, mocker, path):
     mocker.patch.object(module, "guard", antispam_guard)
     bot = commands.Bot(command_prefix="'", intents=discord.Intents.default())
     await module.setup(bot)
@@ -92,15 +116,15 @@ async def test_every_command_runs_the_admin_check(antispam_guard, mocker, path):
     for name in path:
         command = command.get_command(name)
 
-    with pytest.raises(app_commands.MissingPermissions):
+    with pytest.raises(NotGuildAdmin):
         await command._check_can_run(make_admin_interaction(admin=False))
     assert await command._check_can_run(make_admin_interaction(admin=True)) is True
 
 
 async def test_non_admin_gets_permission_message(cog):
     interaction = make_admin_interaction(admin=False)
-    with pytest.raises(app_commands.MissingPermissions) as excinfo:
-        await cog.interaction_check(interaction)
+    with pytest.raises(NotGuildAdmin) as excinfo:
+        await type(cog).status_command.checks[0](interaction)
     await cog.cog_app_command_error(interaction, excinfo.value)
     assert "Administrator permission required" in reply(interaction)
     assert interaction.response.send_message.call_args.kwargs["ephemeral"] is True

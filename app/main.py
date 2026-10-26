@@ -5,6 +5,7 @@ import discord
 from modules import RedisWorker
 from modules import config
 from modules.database import *
+from modules.permissions import on_app_command_error, on_prefix_command_error
 from datetime import datetime as dt
 from discord.ext import commands
 from utils import Logger
@@ -22,7 +23,9 @@ class MyBot(commands.Bot):
             pm_help=True, 
             case_insensitive=True,
             help_command=None,
-            intents=intents
+            intents=intents,
+            # empty = owner comes from the discord application info
+            owner_ids=set(config.owner_ids)
         )
         self.initial_extensions = config.extensions
 
@@ -47,6 +50,9 @@ class MyBot(commands.Bot):
 
 intents = discord.Intents.all()
 client = MyBot()
+# answer failed app commands (permission denials, errors) instead of leaving the interaction unanswered
+client.tree.error(on_app_command_error)
+client.add_listener(on_prefix_command_error, "on_command_error")
 # client.redisworker = RedisWorker()
 
 @client.event

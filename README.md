@@ -25,7 +25,8 @@ Environment Variables that are (required) need values in order for the app to ru
 |VIDEOS_PATH| A path to specify the parent directory that contains all video files|/videos|STRING
 |DATABASE_PATH| A path to specify the parent directory that contains the sqlite3 .db file for sounds|/db|STRING
 |METADATA_DB_PATH| A path to specify the parent directory that contains the sqlite3 .db file for persistent app metadata|/db|STRING
-|OWB_ID (required)| The discord role id or string that specifies the discord role to use the bot (this must be set to use certain features like uploading sounds)|None|STRING or INT
+|OWB_ID (required)| The discord role id (recommended) or role name of the role allowed to use `/add` (uploading sounds), `/restart` and `'mod`. Server admins and the bot owner can always use them. Leave it blank (`" "`) to allow only admins and the owner|None|STRING or INT
+|OWNER_IDS| Comma separated discord user ids allowed to use the `/admin` commands. When empty, the owner (or team) of the discord application is used|empty|STRING
 |LOG_CHANNEL (reqiured)| The discord channel ID that the bot posts log events to|NONE|INT
 |REVERSE_CHAR| The character that is used after a sound command to play the sound in reverse| - |STRING|
 |IMAGE_SIZE_LIMIT| The maximum image size (in bytes) that can be uploaded to the app| 800000 (8 MB)|INT
@@ -121,6 +122,23 @@ Navigate to the directory that contains `main.py` and issue the command:
 `python3.x main.py`
 Where _x_ is the python 3 version you are using. 
 
+# Command permissions
+
+| Who | Commands |
+|---|---|
+| Bot owner (the discord application owner, or `OWNER_IDS`) | `/admin shutdown`, `/admin presence`, `/admin stats`, `/admin avatar` |
+| Server admins (Administrator permission) and the bot owner | `/antispam …` |
+| Members with the `OWB_ID` role, server admins and the bot owner | `/add`, `/restart`, `'mod` |
+| Everyone | everything else |
+
+`/admin` and `/antispam` are hidden in the client from members without the Administrator permission.
+The checks also run when a command is used, so changing the command permissions in
+Server Settings → Integrations can't let anyone else run them. Uses of `/admin` (and refused attempts) are posted to the log channel.
+
+When someone without the `OWB_ID` role tries `/add`, they are told the server admins were notified, and every
+server admin gets a DM saying who tried to upload what, with how to allow it (give them the role, or set `OWB_ID`).
+Repeated attempts by the same member DM the admins at most once every 10 minutes.
+
 # Anti-spam (sound-spam timeout)
 
 The bot can automatically stop a user from playing sounds for a while when they play sounds non-stop.
@@ -144,7 +162,7 @@ between plays. A break of `reset_gap` forgives the streak, so a few quick sounds
 | Notices | In the channel (deleted after 15s), plus the log channel |
 | Discord timeout | off |
 
-**Commands** (`/antispam …`, only visible to and usable by members with the Administrator permission):
+**Commands** (`/antispam …`, only visible to members with the Administrator permission, usable by them and the bot owner):
 
 | Command | What it does |
 |---|---|

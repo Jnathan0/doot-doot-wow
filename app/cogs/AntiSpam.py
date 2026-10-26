@@ -18,17 +18,13 @@ from modules.durations import DurationUnit, to_seconds, humanize
 from modules.helper_functions import format_markdown
 from modules.media import SoundConfirmationDiag
 from modules.menus import ButtonMenu
+from modules.permissions import ADMIN_DEFAULT, NotGuildAdmin, guild_admin_only
 from utils import Logger
 
 # same logger discord.py's default on_command_error uses
 _command_log = logging.getLogger("discord.ext.commands.bot")
 
 PAGE_SIZE = 10
-
-
-def is_antispam_admin(interaction: discord.Interaction) -> bool:
-    """Single place for the /antispam permission policy: server Administrators only."""
-    return interaction.guild is not None and interaction.permissions.administrator
 
 
 def _format_value(name, value):
@@ -46,7 +42,7 @@ def _describe_trigger(info: TimeoutInfo) -> str:
 
 
 @app_commands.guild_only()
-@app_commands.default_permissions(administrator=True)
+@app_commands.default_permissions(ADMIN_DEFAULT)
 class AntiSpam(commands.GroupCog, group_name="antispam",
                group_description="Configure the sound-spam timeout (admins only)"):
     def __init__(self, bot):
@@ -57,16 +53,10 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
     async def cog_load(self) -> None:
         await guard.load()
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # default_permissions only hides the commands, server owners can override it in the Integrations settings
-        if not is_antispam_admin(interaction):
-            raise app_commands.MissingPermissions(["administrator"])
-        return True
-
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         original = getattr(error, "original", error)
-        if isinstance(error, app_commands.MissingPermissions):
-            message = "Administrator permission required."
+        if isinstance(error, NotGuildAdmin):
+            message = str(error)
         elif isinstance(error, app_commands.NoPrivateMessage):
             message = "This command can only be used in a server."
         elif isinstance(original, InvalidSetting):
@@ -170,6 +160,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
     # -- settings commands --------------------------------------------------
 
     @app_commands.command(name="status")
+    @guild_admin_only()
     async def status_command(self, interaction: discord.Interaction) -> None:
         """Show the anti-spam settings and how many users are timed out."""
         settings = guard.settings_for(interaction.guild_id)
@@ -202,12 +193,14 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, embed=embed)
 
     @app_commands.command(name="enable")
+    @guild_admin_only()
     async def enable_command(self, interaction: discord.Interaction) -> None:
         """Turn the sound-spam timeout on."""
         settings = await self._update(interaction, enabled=True)
         await self._reply(interaction, f"✅ Anti-spam **enabled**. {settings.rule_sentence()}.")
 
     @app_commands.command(name="disable")
+    @guild_admin_only()
     async def disable_command(self, interaction: discord.Interaction) -> None:
         """Turn the sound-spam timeout off."""
         await self._update(interaction, enabled=False)
@@ -216,6 +209,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
             "apply again if it is re-enabled before they end. Use `/antispam pardon` to lift one."))
 
     @app_commands.command(name="rule")
+    @guild_admin_only()
     @app_commands.describe(
         max_plays="Number of plays that trips the rule",
         window_amount="Time window the plays have to happen in",
@@ -237,6 +231,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, f"Rule updated: {settings.rule_sentence()}.")
 
     @app_commands.command(name="duration")
+    @guild_admin_only()
     @app_commands.describe(amount="Base timeout length", unit="Unit for the timeout")
     async def duration_command(self, interaction: discord.Interaction,
                                amount: app_commands.Range[int, 1, 10_000], unit: DurationUnit) -> None:
@@ -252,6 +247,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, message)
 
     @app_commands.command(name="escalation")
+    @guild_admin_only()
     @app_commands.describe(
         enabled="Lengthen the timeout for repeat offenders",
         multiplier="Timeout is multiplied by this for each recent offence",
@@ -283,6 +279,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
             await self._reply(interaction, "Escalation **off**: every timeout is the base length.")
 
     @app_commands.command(name="counting")
+    @guild_admin_only()
     @app_commands.describe(
         random="Count the random command",
         quicksounds="Count quicksounds (1, 2, 3)",
@@ -305,6 +302,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
             f"ignored while busy **{'yes' if settings.count_ignored_attempts else 'no'}**."))
 
     @app_commands.command(name="notify")
+    @guild_admin_only()
     @app_commands.describe(mode="Where users are told about their timeout")
     async def notify_command(self, interaction: discord.Interaction,
                              mode: Literal["channel", "dm", "both", "none"]) -> None:
@@ -313,6 +311,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, f"Timeout notices: **{mode}**.")
 
     @app_commands.command(name="options")
+    @guild_admin_only()
     @app_commands.describe(
         exempt_admins="Members with the Administrator permission are never timed out",
         log_channel="Log timeouts, pardons and setting changes to the log channel",
@@ -341,6 +340,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, message)
 
     @app_commands.command(name="reset-defaults")
+    @guild_admin_only()
     async def reset_defaults_command(self, interaction: discord.Interaction) -> None:
         """Restore the default settings (keeps it enabled or disabled)."""
         view = SoundConfirmationDiag()
@@ -363,6 +363,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
     # -- exempt roles -------------------------------------------------------
 
     @exempt_role_group.command(name="add")
+    @guild_admin_only()
     async def exempt_role_add_command(self, interaction: discord.Interaction, role: discord.Role) -> None:
         """Never time out members with this role."""
         settings = guard.settings_for(interaction.guild_id)
@@ -372,6 +373,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
                           allowed_mentions=discord.AllowedMentions.none())
 
     @exempt_role_group.command(name="remove")
+    @guild_admin_only()
     async def exempt_role_remove_command(self, interaction: discord.Interaction, role: discord.Role) -> None:
         """Stop exempting a role."""
         settings = guard.settings_for(interaction.guild_id)
@@ -383,6 +385,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, message, allowed_mentions=discord.AllowedMentions.none())
 
     @exempt_role_group.command(name="list")
+    @guild_admin_only()
     async def exempt_role_list_command(self, interaction: discord.Interaction) -> None:
         """List exempt roles."""
         settings = guard.settings_for(interaction.guild_id)
@@ -393,6 +396,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
     # -- timeouts -----------------------------------------------------------
 
     @app_commands.command(name="timeout")
+    @guild_admin_only()
     @app_commands.describe(member="Member to time out", amount="Timeout length", unit="Unit for the timeout",
                            reason="(Optional) reason, shown in history")
     async def timeout_command(self, interaction: discord.Interaction, member: discord.Member,
@@ -420,6 +424,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, message, allowed_mentions=discord.AllowedMentions.none())
 
     @app_commands.command(name="pardon")
+    @guild_admin_only()
     @app_commands.describe(member="Member whose timeout to lift")
     async def pardon_command(self, interaction: discord.Interaction, member: discord.Member) -> None:
         """Lift a member's sound timeout."""
@@ -432,6 +437,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
         await self._reply(interaction, f"{member.mention} can play sounds again.", allowed_mentions=discord.AllowedMentions.none())
 
     @app_commands.command(name="active")
+    @guild_admin_only()
     async def active_command(self, interaction: discord.Interaction) -> None:
         """List members who are timed out from sounds."""
         timeouts = await guard.list_active(interaction.guild_id)
@@ -449,6 +455,7 @@ class AntiSpam(commands.GroupCog, group_name="antispam",
                               allowed_mentions=discord.AllowedMentions.none())
 
     @app_commands.command(name="history")
+    @guild_admin_only()
     @app_commands.describe(member="Member to show timeouts for")
     async def history_command(self, interaction: discord.Interaction, member: discord.Member) -> None:
         """Last 10 sound timeouts for a member."""

@@ -6,6 +6,7 @@ import asyncio
 import requests
 import os
 import tempfile
+import time
 import discord
 from pathlib import Path
 from typing import Optional
@@ -18,8 +19,57 @@ from modules.imgprocessing import ImageAttachment
 from modules.media import ImageAddModal, SoundConfirmationDiag
 from modules.paths import safe_child, UnsafePath, INCOMING_DIR
 from modules.validation import validate_name, validate_sound_upload, InvalidName
+from modules.permissions import owb_role_required, guild_owb_role, audit_denial
+from modules.config_parsing import normalize_owb_id
 from discord.ext import commands
 from discord import app_commands
+
+# one round of admin DMs per member per 10 minutes, however many times they retry /add
+UPLOAD_REQUEST_INTERVAL = 600
+_last_upload_request = {}
+
+
+def upload_request_message(guild, user, filename):
+    """DM text telling an admin that a member without the OWB role tried to upload, and how to allow it."""
+    role = guild_owb_role(guild)
+    owb_id = normalize_owb_id(config.owb_id)
+    role_label = f"**{role.name}**" if role else "OWB"
+    text = (f"📥 **{user.display_name}** ({user.mention}) tried to upload "
+            + (f"`{filename}` " if filename else "") +
+            f"with `/add` in **{guild.name}**, but uploading sounds needs the {role_label} role.\n")
+    if role is not None:
+        text += (f"To allow it, give them the role: right-click {user.display_name} → Roles → tick **{role.name}** "
+                 "(or Server Settings → Members). Server admins can always upload.")
+    elif owb_id is None:
+        text += ("To allow it, set `OWB_ID` in the bot's `.env` to the id of the role that may upload, "
+                 "restart the bot, then give them that role. Until then only server admins can upload.")
+    else:
+        text += (f"`OWB_ID` (`{owb_id}`) doesn't match a role in this server. To allow it, set `OWB_ID` in the "
+                 "bot's `.env` to the id of the role that may upload, restart the bot, then give them that role.")
+    return text
+
+
+async def notify_admins_of_denied_upload(interaction: discord.Interaction):
+    """DMs the server's admins when someone without the OWB role tries /add (throttled per member)."""
+    guild, user = interaction.guild, interaction.user
+    key = (guild.id, user.id)
+    now = time.monotonic()
+    last = _last_upload_request.get(key)
+    if last is not None and now - last < UPLOAD_REQUEST_INTERVAL:
+        return
+    _last_upload_request[key] = now
+
+    attachment = getattr(interaction.namespace, "attachment", None)
+    text = upload_request_message(guild, user, getattr(attachment, "filename", None))
+    admins = [member for member in guild.members
+              if member.guild_permissions.administrator and not member.bot and member.id != user.id]
+    for admin in admins:
+        try:
+            await admin.send(text)
+        except discord.HTTPException as e:
+            print(f"Could not DM {admin} about a denied upload: {e}")
+    await audit_denial(interaction)
+
 
 class Media(commands.Cog, commands.Command):
     def __init__(self, bot):
@@ -32,7 +82,11 @@ class Media(commands.Cog, commands.Command):
     
     @app_commands.command(name='add')
     @app_commands.default_permissions(attach_files=True)
-    # @app_commands.checks.has_role(config.owb_id)
+    @app_commands.guild_only()
+    @owb_role_required(
+        message="Uploading sounds requires the OWB role. The server admins have been told you'd like to upload.",
+        on_denied=notify_admins_of_denied_upload,
+    )
     @app_commands.describe(folder='(Optional) folder to add sound to.', )
     async def add_command(self, interaction: discord.Interaction, attachment: discord.Attachment, folder: Optional[str]):
         """
